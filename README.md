@@ -55,6 +55,32 @@ if redaction did not run.
 supervisor, adjudication only. Gemma for on-path clinical redaction. Chirp and
 Veo for the family-facing packet.
 
+## Idempotency
+
+The tick runs hourly and unattended — roughly 240 executions across the build.
+Cloud Scheduler is at-least-once and Cloud Run Jobs retry, so "this ran twice"
+is a certainty, not a risk.
+
+The naive fix — refusing to re-run — is wrong: a tick that failed halfway must
+be safe to retry or a transient Firestore blip strands a case. So the guarantee
+is **per-effect, not per-run**. Every side effect derives a deterministic id
+from what it *is*, claims it once against a ledger backed by Firestore document
+uniqueness, and is a no-op forever after. The claim happens *before* the effect:
+a crash in between costs one missed notice that the coordinator sees in the
+dashboard, where the reverse would spam a family on every tick for the life of
+the case.
+
+Two scopes, deliberately different:
+
+- **Escalations** are claimed once *ever* per student and rung — a T-7 warning
+  is a thing that happens one time in a case's life, not once per tick.
+- **Dead letters** are claimed per run, so a case that keeps failing keeps
+  surfacing to the human queue.
+
+Firing a tight rung also retires every looser one. A case first noticed at T-1
+gets the two-day notice only — never 14, then 7, then 2 across three
+consecutive ticks.
+
 ## Failure tolerance
 
 `src/agentx/supervisor/resilience.py`, four layers in order:
@@ -71,7 +97,7 @@ Veo for the family-facing packet.
 
 ```bash
 make install
-make test        # deadline engine, no cloud credentials needed
+make test        # deadline engine + idempotency, no cloud SDKs needed
 make corpus      # 40 synthetic cases
 cp .env.example .env   # fill in GOOGLE_CLOUD_PROJECT
 make probe       # day-1 provisioning probe

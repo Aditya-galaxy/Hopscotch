@@ -1,7 +1,7 @@
 """The deadline math is the one thing here that must not be approximately right."""
 from datetime import date
 
-from agentx.deadlines import compute_deadline, due_escalation
+from agentx.deadlines import compute_deadline, due_escalation, superseded_by
 from agentx.jurisdictions import demo_calendar
 
 CAL = demo_calendar()
@@ -49,9 +49,22 @@ def test_business_day_rule_skips_fixed_holidays():
     assert (12, 25) != (comp.due_on.month, comp.due_on.day)
 
 
-def test_escalation_ladder_fires_each_rung_once():
+def test_ladder_picks_the_tightest_applicable_rung():
+    # Six days out, both the 14- and 7-day rungs have been passed. Sending a
+    # "14 days remaining" notice now would be wrong, so 7 wins.
     comp = _c("US_FEDERAL", date(2026, 9, 1), today=date(2026, 10, 25))
     assert comp.days_remaining == 6
+    assert due_escalation(comp, already_sent=[]) == 7
+    assert due_escalation(comp, already_sent=[7]) is None
+
+
+def test_ladder_picks_the_loose_rung_when_only_it_applies():
+    comp = _c("US_FEDERAL", date(2026, 9, 1), today=date(2026, 10, 21))
+    assert comp.days_remaining == 10
     assert due_escalation(comp, already_sent=[]) == 14
-    assert due_escalation(comp, already_sent=[14]) == 7
-    assert due_escalation(comp, already_sent=[14, 7]) is None
+
+
+def test_firing_a_tight_rung_retires_the_looser_ones():
+    assert superseded_by(7) == [14, 7]
+    assert superseded_by(2) == [14, 7, 2]
+    assert superseded_by(14) == [14]

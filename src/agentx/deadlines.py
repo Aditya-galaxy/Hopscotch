@@ -9,8 +9,8 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from .config import ESCALATION_LADDER
-from .jurisdictions import JURISDICTIONS, RuleType, SchoolCalendar
-from .schemas import DeadlineComputation
+from .jurisdictions import JURISDICTIONS, RuleType, SchoolCalendar, demo_calendar
+from .schemas import Case, DeadlineComputation
 
 _US_FIXED_HOLIDAYS = {(1, 1), (7, 4), (11, 11), (12, 25)}
 
@@ -116,9 +116,50 @@ def compute_deadline(
     )
 
 
+def applicable_rungs(comp: DeadlineComputation) -> list[int]:
+    """Every ladder rung the case has already fallen past, loosest first."""
+    return sorted((r for r in ESCALATION_LADDER if comp.days_remaining <= r),
+                  reverse=True)
+
+
 def due_escalation(comp: DeadlineComputation, already_sent: list[int]) -> int | None:
-    """Return the ladder rung to fire now, or None. Each rung fires once."""
-    for rung in ESCALATION_LADDER:
-        if comp.days_remaining <= rung and rung not in already_sent:
-            return rung
-    return None
+    """The single rung to fire now, or None.
+
+    Returns the TIGHTEST applicable rung, not the loosest. At six days out the
+    fourteen-day warning is moot -- nobody wants a "14 days remaining" notice
+    when six remain. A case that goes unnoticed until late therefore gets one
+    accurate notice rather than a burst walking the entire ladder over three
+    consecutive ticks.
+    """
+    applicable = applicable_rungs(comp)
+    if not applicable:
+        return None
+    tightest = min(applicable)
+    return None if tightest in already_sent else tightest
+
+
+def superseded_by(rung: int) -> list[int]:
+    """Rungs that firing `rung` retires -- itself and everything looser."""
+    return [r for r in ESCALATION_LADDER if r >= rung]
+
+
+def recompute(case: Case, *, today: date | None = None) -> DeadlineComputation:
+    """Deadline for a case as it stands right now.
+
+    Lives here rather than in agents/clock.py on purpose: the tick job must be
+    able to do this arithmetic without importing an LLM framework, and this is
+    the code path where a wrong answer has legal consequences.
+    """
+    if case.consent is None:
+        raise ValueError(f"{case.student_ref} has no consent event; clock not started")
+    return compute_deadline(
+        student_ref=case.student_ref,
+        jurisdiction_key=case.jurisdiction,
+        clock_started_on=case.consent.consent_signed_on,
+        calendar=demo_calendar(),
+        today=today,
+    )
+
+
+def pending_escalation(case: Case, comp: DeadlineComputation) -> int | None:
+    return due_escalation(comp, case.escalations_sent)

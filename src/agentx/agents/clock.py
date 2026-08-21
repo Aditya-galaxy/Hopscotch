@@ -14,9 +14,9 @@ from datetime import date
 from google.adk.agents import LlmAgent
 
 from ..config import FLASH
-from ..deadlines import compute_deadline, due_escalation
-from ..jurisdictions import demo_calendar
-from ..schemas import Case, DeadlineComputation
+from ..deadlines import (  # noqa: F401  (re-export)
+    pending_escalation, recompute, superseded_by,
+)
 
 INSTRUCTION = """\
 You draft escalation notices for special education evaluation deadlines.
@@ -33,19 +33,3 @@ clock_agent = LlmAgent(
     model=FLASH,
     instruction=INSTRUCTION,
 )
-
-
-def recompute(case: Case, *, today: date | None = None) -> DeadlineComputation:
-    if case.consent is None:
-        raise ValueError(f"{case.student_ref} has no consent event; clock not started")
-    return compute_deadline(
-        student_ref=case.student_ref,
-        jurisdiction_key=case.jurisdiction,
-        clock_started_on=case.consent.consent_signed_on,
-        calendar=demo_calendar(),
-        today=today,
-    )
-
-
-def pending_escalation(case: Case, comp: DeadlineComputation) -> int | None:
-    return due_escalation(comp, case.escalations_sent)
