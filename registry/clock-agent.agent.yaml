@@ -1,0 +1,29 @@
+# Agent card published to Agent Registry. Versioned; a bump here is what makes
+# an agent discoverable to another department without a code change on their side.
+apiVersion: agentregistry/v1
+kind: Agent
+metadata:
+  name: clock-agent
+  version: 0.1.0
+  owner_department: "SPED admin"
+  labels:
+    program: special-education
+    compliance: idea-part-b
+spec:
+  model: gemini-3.5-flash
+  description: >-
+    See src/agentx/agents/ for the instruction and contract.
+  identity:
+    # Per-agent SPIFFE identity. Deliberately NOT a shared service account:
+    # a shared account would make every scope below unenforceable.
+    kind: AgentIdentity
+    spiffe_id: spiffe://agentx/sped/clock-agent
+  scopes:
+    - case.read_dates case.write_deadline
+  gateway:
+    # Every tool call routes through Agent Gateway, which authorizes against
+    # the identity above and the scopes declared here.
+    policy: agentx-sped-policy
+    deny_by_default: true
+  guardrails:
+    model_armor_template: agentx-inbound

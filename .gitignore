@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+data/generated/
+*.mp4
+*.wav
+.DS_Store

@@ -1,0 +1,93 @@
+"""Contracts between agents.
+
+The supervisor validates every worker return against one of these models. A
+worker that hallucinates a shape rather than a value fails here, loudly and
+cheaply, before anything downstream acts on it.
+"""
+from __future__ import annotations
+
+from datetime import date, datetime
+from enum import Enum
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class CaseStage(str, Enum):
+    REFERRED = "referred"
+    CONSENT_RECEIVED = "consent_received"
+    EVALUATING = "evaluating"
+    REPORT_DRAFTED = "report_drafted"
+    MEETING_SCHEDULED = "meeting_scheduled"
+    CLOSED = "closed"
+
+
+class Sensitivity(str, Enum):
+    """Drives which agent identity may read a field."""
+    DIRECTORY = "directory"       # name, school, grade
+    ADMINISTRATIVE = "administrative"
+    CLINICAL = "clinical"         # psychological findings -- narrowest access
+
+
+class ConsentEvent(BaseModel):
+    """What intake-agent extracts from a signed consent form."""
+    student_ref: str = Field(description="Opaque student id, never a name")
+    school_code: str
+    jurisdiction: str = Field(description="Key into JURISDICTIONS")
+    consent_signed_on: date
+    received_on: date
+    referral_reason: str = ""
+    confidence: float = Field(ge=0.0, le=1.0)
+    source_document: str
+
+
+class DeadlineComputation(BaseModel):
+    """What clock-agent produces. Pure function of the case + calendar."""
+    student_ref: str
+    jurisdiction: str
+    rule_label: str
+    clock_started_on: date
+    due_on: date
+    days_remaining: int
+    excluded_days: int = Field(description="Days the rule did not count")
+    explanation: str = Field(description="Human-readable, for the audit log")
+
+
+class DraftedNotice(BaseModel):
+    """What casework-agent produces. Never leaves the district unredacted."""
+    student_ref: str
+    notice_type: Literal["prior_written_notice", "evaluation_plan", "meeting_agenda"]
+    body: str
+    statutory_citations: list[str] = Field(default_factory=list)
+    contains_clinical: bool = True
+
+
+class FamilyPacket(BaseModel):
+    """What family-agent produces. Clinical content is stripped upstream."""
+    student_ref: str
+    language: str
+    letter_text: str
+    audio_uri: str | None = None
+    explainer_uri: str | None = None
+    redaction_applied: bool
+
+
+class Case(BaseModel):
+    student_ref: str
+    school_code: str
+    jurisdiction: str
+    stage: CaseStage = CaseStage.REFERRED
+    consent: ConsentEvent | None = None
+    deadline: DeadlineComputation | None = None
+    escalations_sent: list[int] = Field(default_factory=list)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class WorkerResult(BaseModel):
+    """Envelope every worker returns through. The supervisor reads this first."""
+    agent: str
+    ok: bool
+    attempt: int = 1
+    payload: dict | None = None
+    error: str | None = None
+    trace_id: str | None = None

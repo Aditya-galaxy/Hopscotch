@@ -1,0 +1,29 @@
+.PHONY: help install test corpus tick probe rename
+PY := python3
+
+help:
+	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n",$$1,$$2}'
+
+install:  ## create venv and install deps
+	$(PY) -m venv .venv && .venv/bin/pip install -q -r requirements.txt
+	@echo "run: source .venv/bin/activate"
+
+test:  ## run the deadline test suite (no cloud needed)
+	PYTHONPATH=src $(PY) -m pytest tests/ -q
+
+corpus:  ## generate the synthetic case corpus
+	PYTHONPATH=src $(PY) scripts/generate_corpus.py -n 40
+
+tick:  ## run one tick locally against Firestore
+	PYTHONPATH=src $(PY) -m agentx.jobs.tick
+
+probe:  ## day-1 provisioning probe
+	./deploy/probe.sh
+
+rename:  ## rename the project: make rename NAME=SixtyDays
+	@test -n "$(NAME)" || (echo "usage: make rename NAME=YourName"; exit 1)
+	@slug=$$(echo "$(NAME)" | tr '[:upper:]' '[:lower:]'); \
+	grep -rl -e agentx -e AgentX . --exclude-dir=.git --exclude-dir=.venv \
+	  | xargs sed -i '' -e "s/AgentX/$(NAME)/g" -e "s/agentx/$$slug/g"; \
+	git mv src/agentx src/$$slug 2>/dev/null || mv src/agentx src/$$slug; \
+	echo "renamed to $(NAME) ($$slug) -- review with git diff before committing"
