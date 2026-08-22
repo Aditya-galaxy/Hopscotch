@@ -51,7 +51,10 @@ if redaction did not run.
 | Observability | OTel → Cloud Trace | `src/agentx/telemetry.py` |
 | Infra | Scheduler · Pub/Sub · Cloud Run Jobs · Firestore | `src/agentx/jobs/tick.py` |
 
-**Models.** `gemini-3.5-flash` for all workers. `gemini-3.5-pro` in the
+**Models.** `gemini-3.5-flash` for all workers, served from the `global`
+endpoint — Gemini 3.x publisher models 404 on regional endpoints even though
+they are *listed* there, so `GOOGLE_CLOUD_MODEL_LOCATION` is separate from the
+region used for Cloud Run, Agent Engine, and Firestore. `gemini-3.5-pro` in the
 supervisor, adjudication only. Gemma for on-path clinical redaction. Chirp and
 Veo for the family-facing packet.
 
@@ -95,8 +98,21 @@ binary, and no regex-matchable signature — static analysis is *correct* that
 nothing is structurally wrong. It is ordinary English, which is precisely what
 pattern matching cannot read and what the intent reviewer exists for.
 
-Meanwhile all 36 skills in the real benign corpus pass clean. A gate with false
-positives gets disabled by the people it was built to help.
+Wired to `gemini-3.5-flash`, the same skill comes back:
+
+```
+REJECT    credential-helper                verdict=dangerous
+  [critical] exfiltration:    reads AWS and GitHub credentials and transmits
+                              them to external endpoints in request headers
+  [critical] obfuscation:     instructs the agent to hide the credential
+                              harvesting and transmission from the user
+  [high]     intent_mismatch: stated purpose of improving API reliability
+                              mismatches its actual behaviour
+```
+
+Meanwhile all 36 skills in the real benign corpus pass clean — **36/36 approve,
+zero findings**. A gate with false positives gets disabled by the people it was
+built to help, so that number matters as much as the one above.
 
 ```bash
 make corpora

@@ -14,6 +14,7 @@ GEMMA = "gemma-3-12b-it"            # on-path redaction; confirm exact id at pro
 class Settings:
     project_id: str
     location: str
+    model_location: str
     firestore_db: str
     cases_collection: str
     deadletter_collection: str
@@ -27,6 +28,11 @@ class Settings:
         return cls(
             project_id=os.environ.get("GOOGLE_CLOUD_PROJECT", ""),
             location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+            # Gemini 3.x publisher models are served from the `global` endpoint,
+            # NOT from regional ones -- a regional call 404s even though the
+            # model is listed there. Infra (Cloud Run, Agent Engine, Firestore)
+            # still needs a real region, so these are two separate settings.
+            model_location=os.environ.get("GOOGLE_CLOUD_MODEL_LOCATION", "global"),
             firestore_db=os.environ.get("FIRESTORE_DATABASE", "(default)"),
             cases_collection=os.environ.get("CASES_COLLECTION", "cases"),
             deadletter_collection=os.environ.get("DEADLETTER_COLLECTION", "deadletter"),

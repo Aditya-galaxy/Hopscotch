@@ -30,7 +30,7 @@ def client() -> genai.Client:
                 "provide GEMINI_API_KEY for local work."
             )
         return genai.Client(vertexai=True, project=settings.project_id,
-                            location=settings.location)
+                            location=settings.model_location)
 
     key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not key:
