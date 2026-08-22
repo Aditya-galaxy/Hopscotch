@@ -204,9 +204,50 @@ Full diagrams, trust boundaries, and the tick sequence:
 | Observability | OTel → Cloud Trace | `src/agentx/telemetry.py` |
 | Infra | Scheduler · Pub/Sub · Cloud Run Jobs · Firestore | `src/agentx/jobs/tick.py` |
 
-**Models.** `gemini-3.5-flash` for workers, `gemini-3.5-pro` in the supervisor
-for adjudication only, `gemma-4-26b-a4b-it-maas` for skill triage and clinical
-redaction. **Framework:** Google ADK 2.7.1.
+**Models.** `gemini-3.5-flash` for workers · `gemini-3.5-pro` in the supervisor
+for adjudication only · `gemma-4-26b-a4b-it-maas` for skill triage and clinical
+redaction · `veo-3.1-fast-generate-001` for one cached district explainer ·
+**Chirp3-HD** for spoken notices. **Framework:** Google ADK 2.7.1.
+
+## Family-facing output
+
+Districts already write these letters. They go unread — wrong reading level,
+wrong language, and the family that most needs the notice is often least able
+to parse it. So the last mile is three steps:
+
+1. **Gemma strips the clinical content.** Not softened — removed. "Showed
+   difficulty with phonological processing" is still a clinical finding when
+   written kindly. Verified live: WISC-V, IQ 87, 19th percentile, and the
+   psychologist's observation all gone; the meeting date, the right to an
+   independent evaluation, and the contact number all kept.
+2. **Chirp3-HD speaks it** in the family's language, at 0.92 rate because this
+   is a legal notice being heard for the first time. Cached by content hash.
+3. **Veo renders the timeline once** for the whole district. The evaluation
+   sequence is identical for every family, so per-case generation would be pure
+   waste. Cached on disk and baked into the image.
+
+Redaction **fails closed**: any error returns the original text with
+`redacted=False`, and the handoff refuses to send. It never returns text it did
+not process while claiming it did.
+
+## Coordinator dashboard
+
+One Cloud Run service, scanned rather than read — overdue first, countdowns as
+colour and number, and the audit trail visible rather than buried, because an
+agent that acted on a case without the coordinator being able to see why is
+exactly what districts are right to refuse.
+
+```bash
+gcloud run services proxy agentx-dashboard --region us-central1
+```
+
+Deployed **private** (`--no-allow-unauthenticated`): 200 with an identity
+token, 403 anonymously. All data is synthetic, so it could be public — that is
+a deliberate choice, not a limitation.
+
+The image has **one entrypoint by default and two uses**: it serves the
+dashboard, and the Cloud Run *job* overrides the command to run the tick. Two
+Dockerfiles would drift, since both share every module that matters.
 
 ---
 

@@ -44,12 +44,58 @@ def screen_inbound(text: str, *, source: str) -> ScreenResult:
         return ScreenResult(allowed=True, findings=[], sanitized=text)
 
 
-def redact_clinical(text: str, *, student_ref: str) -> tuple[str, bool]:
-    """Gemma strips clinical findings before the family-facing handoff.
+REDACTION_PROMPT = """\
+Rewrite this special education notice so a parent can read it, with every
+clinical detail removed.
 
-    TODO(day-8): call Gemma (config.GEMMA) with the redaction prompt. Returning
-    (text, False) here means "not yet redacted" -- family_agent asserts on the
-    boolean, so an unwired redactor fails closed rather than leaking.
+REMOVE: diagnoses, test names, test scores, percentiles, standard scores,
+clinical observations, and any professional's assessment of the child.
+
+KEEP: what the district will do, what the family can do, dates and deadlines,
+who to contact, and the child's name or reference.
+
+Do not summarise the clinical content in gentler words -- remove it. "Showed
+difficulty with phonological processing" is still a clinical finding when
+written kindly.
+
+Return only the rewritten notice. No preamble.
+
+NOTICE:
+{text}
+"""
+
+
+def redact_clinical(text: str, *, student_ref: str) -> tuple[str, bool]:
+    """Strip clinical findings before the family-facing handoff.
+
+    Runs on Gemma rather than Gemini deliberately. This is a narrow, mechanical
+    transformation on every outbound notice, so it belongs on the cheap model --
+    and keeping it off the expensive one is what makes running it on *every*
+    notice affordable rather than a thing someone later makes conditional.
+
+    Returns (text, redacted). On any failure it returns the ORIGINAL text with
+    redacted=False, and the caller refuses the handoff. It never returns text
+    it did not successfully process while claiming it did.
     """
-    with span("guardrail.redact_clinical", model=GEMMA, student_ref=student_ref):
-        return text, False
+    with span("guardrail.redact_clinical", model=GEMMA, student_ref=student_ref) as s:
+        try:
+            from google.genai import types
+
+            from .genai import client
+
+            resp = client().models.generate_content(
+                model=GEMMA,
+                contents=REDACTION_PROMPT.format(text=text),
+                config=types.GenerateContentConfig(temperature=0.0),
+            )
+            out = (resp.text or "").strip()
+            if not out:
+                s.set_attribute("redacted", False)
+                return text, False
+            s.set_attribute("redacted", True)
+            return out, True
+        except Exception as e:
+            # Fail closed: the caller treats redacted=False as "do not send".
+            s.set_attribute("redacted", False)
+            s.set_attribute("error", type(e).__name__)
+            return text, False

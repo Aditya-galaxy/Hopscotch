@@ -137,8 +137,11 @@ for role in roles/cloudbuild.builds.builder roles/storage.objectViewer \
 done
 
 say "7/9  deploy the job"
+# The image defaults to serving the dashboard, so the JOB overrides the
+# command. One image, two entrypoints -- see the Dockerfile.
 gcloud run jobs deploy "$JOB" \
   --source . --region="$REGION" --project="$PROJECT_ID" \
+  --command python --args="-m,agentx.jobs.tick" \
   --service-account="$RUN_SA@$PROJECT_ID.iam.gserviceaccount.com" \
   --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=global,MODEL_ARMOR_LOCATION=$REGION,MODEL_ARMOR_TEMPLATE=$ARMOR_TEMPLATE,AGENT_ENGINE_ID=$AGENT_ENGINE_ID" \
   --max-retries=1 --task-timeout=10m --memory=512Mi

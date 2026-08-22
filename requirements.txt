@@ -13,3 +13,6 @@ pydantic>=2
 pytest
 pyyaml
 google-cloud-modelarmor
+# Coordinator dashboard (Cloud Run service; the tick job does not use these)
+fastapi
+uvicorn[standard]
