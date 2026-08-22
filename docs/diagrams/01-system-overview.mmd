@@ -1,8 +1,7 @@
 flowchart LR
-    subgraph TRIG["TRIGGERS"]
+    subgraph TRIG["TRIGGER"]
         direction TB
         SCH["Cloud Scheduler<br/>hourly"]
-        PS["Pub/Sub<br/>document arrival"]
     end
 
     JOB["Cloud Run Job<br/>agentx-tick<br/>scales to zero"]
@@ -37,12 +36,13 @@ flowchart LR
     end
 
     SCH --> JOB
-    PS --> JOB
     JOB --> CO
     CO --> GW
     ID --> GW
     REG --> GW
     GW --> FLEET
+    CL -->|escalation| CW
+    CW -->|redacted| FA
     IN --> MA
     MA --> RV
     RV --> REG

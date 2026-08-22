@@ -17,7 +17,6 @@ Three layers. The third is what most agent systems skip.
 flowchart TB
     subgraph trigger[" "]
         SCH["Cloud Scheduler<br/><i>hourly</i>"]
-        PS["Pub/Sub<br/><i>document arrival</i>"]
     end
 
     subgraph L2["LAYER 2 · Governance plane"]
@@ -46,7 +45,6 @@ flowchart TB
     end
 
     SCH --> JOB["Cloud Run Job<br/><i>scales to zero</i>"]
-    PS --> JOB
     JOB --> CO
     CO --> GW
     GW -.authorizes on.-> ID
@@ -205,6 +203,45 @@ The table is **org-configurable data**, not a hardcoded literal, so a
 compromised publisher can be demoted at 3am without shipping a build.
 
 ---
+
+## The escalation pipeline
+
+This is the delegation chain the system exists for, and every hop crosses a
+privilege boundary:
+
+```mermaid
+sequenceDiagram
+    participant C as clock-agent
+    participant G as Agent Gateway
+    participant W as casework-agent
+    participant M as Gemma
+    participant F as family-agent
+    participant T as Chirp
+
+    C->>G: rung due, request case.read_full for casework
+    G->>W: FULL case, clinical included
+    W-->>G: drafted statutory notice
+    G->>M: strip clinical findings
+    M-->>G: redacted body (or fail closed)
+    G->>F: REDACTED projection only
+    F-->>G: parent letter, plain language
+    G->>T: speak it in the family's language
+    T-->>G: cached mp3
+```
+
+`casework-agent` holds the clinical narrative and can do almost nothing else.
+`family-agent` reaches the outside world and never sees clinical text — not
+because it declines to, but because the gateway never hands it any. Verified
+end to end: the projected view family-agent receives is four fields, and the
+final parent letter contains none of WISC, FSIQ, the score, or the percentile.
+
+Bounded at **5 notices per tick**. Twelve simultaneous escalations would
+otherwise be ~48 model calls in one burst against a per-minute quota; the rest
+roll to the next hour, which is fine for 14/7/2-day warnings.
+
+If any hop fails, the escalation is still *recorded* — the warning happened —
+but the case is dead-lettered as "escalation recorded but notice not generated",
+so a human knows to draft it.
 
 ## The gateway: two levels, not one
 

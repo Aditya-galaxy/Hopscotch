@@ -20,7 +20,6 @@ class Settings:
     cases_collection: str
     deadletter_collection: str
     audit_collection: str
-    tick_topic: str
     armor_template: str
     use_vertex: bool
 
@@ -45,8 +44,12 @@ class Settings:
             cases_collection=os.environ.get("CASES_COLLECTION", "cases"),
             deadletter_collection=os.environ.get("DEADLETTER_COLLECTION", "deadletter"),
             audit_collection=os.environ.get("AUDIT_COLLECTION", "audit"),
-            tick_topic=os.environ.get("TICK_TOPIC", "agentx-tick"),
             armor_template=os.environ.get("MODEL_ARMOR_TEMPLATE", ""),
+            # ADK reads this raw env var ITSELF to decide Vertex vs the Gemini
+            # Developer API, and its default is NOT ours. Setting our default to
+            # true here does nothing for ADK -- the variable has to be present in
+            # the environment. It worked locally because the shell exported it and
+            # failed in the container, which is the whole shape of the bug.
             use_vertex=os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "true").lower() == "true",
         )
 

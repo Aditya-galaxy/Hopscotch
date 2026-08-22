@@ -71,7 +71,7 @@ clinical redaction) · `veo-3.1-fast-generate-001` (one cached explainer) ·
 **Framework:** Google ADK 2.7.1 (`LlmAgent`, `run_async`,
 `VertexAiMemoryBankService`)
 
-**Google Cloud:** Cloud Run Jobs · Cloud Run · Cloud Scheduler · Pub/Sub ·
+**Google Cloud:** Cloud Run Jobs · Cloud Run · Cloud Scheduler ·
 Firestore · Vertex AI · Vertex AI Agent Engine · Memory Bank · **Model Armor** ·
 Cloud Trace · Cloud Build
 

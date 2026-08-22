@@ -143,7 +143,7 @@ gcloud run jobs deploy "$JOB" \
   --source . --region="$REGION" --project="$PROJECT_ID" \
   --command python --args="-m,agentx.jobs.tick" \
   --service-account="$RUN_SA@$PROJECT_ID.iam.gserviceaccount.com" \
-  --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=global,MODEL_ARMOR_LOCATION=$REGION,MODEL_ARMOR_TEMPLATE=$ARMOR_TEMPLATE,AGENT_ENGINE_ID=$AGENT_ENGINE_ID" \
+  --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_LOCATION=global,MODEL_ARMOR_LOCATION=$REGION,MODEL_ARMOR_TEMPLATE=$ARMOR_TEMPLATE,AGENT_ENGINE_ID=$AGENT_ENGINE_ID" \
   --max-retries=1 --task-timeout=10m --memory=512Mi
 
 say "8/9  schedule it (hourly)"

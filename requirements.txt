@@ -6,6 +6,8 @@ google-adk
 google-cloud-aiplatform
 google-genai
 google-cloud-firestore
+# Imported directly for ClientOptions (regional endpoints, quota project).
+google-api-core
 google-cloud-pubsub
 opentelemetry-sdk
 opentelemetry-exporter-gcp-trace
@@ -13,6 +15,8 @@ pydantic>=2
 pytest
 pyyaml
 google-cloud-modelarmor
+# Chirp voices for parent notices.
+google-cloud-texttospeech
 # Coordinator dashboard (Cloud Run service; the tick job does not use these)
 fastapi
 uvicorn[standard]

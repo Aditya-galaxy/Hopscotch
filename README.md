@@ -41,6 +41,12 @@ Every hour, unattended, with nobody watching:
 - screens every inbound document through Model Armor before a model reads it
 - reviews any new capability an agent tries to load, before it can load it
 
+When a rung fires it **delegates**: the gateway authorizes `casework-agent` for
+full clinical access to draft the statutory notice, Gemma strips every clinical
+finding, the gateway hands `family-agent` a *redacted projection*, it writes the
+parent letter, and Chirp speaks it. Two ADK agents, two privilege boundaries,
+one hourly job that nobody triggers.
+
 A person only sees what it could not clear.
 
 ---
@@ -202,7 +208,7 @@ Full diagrams, trust boundaries, and the tick sequence:
 | Agent Gateway | Agent Gateway | `registry/*.agent.yaml` → `spec.gateway` |
 | Model Armor | Model Armor | `src/agentx/armor.py` |
 | Observability | OTel → Cloud Trace | `src/agentx/telemetry.py` |
-| Infra | Scheduler · Pub/Sub · Cloud Run Jobs · Firestore | `src/agentx/jobs/tick.py` |
+| Infra | Scheduler · Cloud Run Jobs · Cloud Run · Firestore | `src/agentx/jobs/tick.py` |
 
 **Models.** `gemini-3.5-flash` for workers · `gemini-3.5-pro` in the supervisor
 for adjudication only · `gemma-4-26b-a4b-it-maas` for skill triage and clinical

@@ -21,8 +21,9 @@ from ..config import PROJECT_SLUG
 from ..deadlines import (
     ClockCannotStart, pending_escalation, recompute, superseded_by,
 )
+from ..pipeline import MAX_NOTICES_PER_TICK, PipelineFailed, draft_and_send
 from ..idempotency import Ledger, escalation_effect, run_key_for
-from ..schemas import DeadlineComputation
+from ..schemas import DeadlineComputation, WorkerResult
 from ..telemetry import span
 
 log = logging.getLogger(PROJECT_SLUG)
@@ -50,11 +51,16 @@ def run_tick(
         from ..store import FirestoreLedger
         ledger = FirestoreLedger()
 
-    counts = {"scanned": 0, "escalated": 0, "suppressed": 0,
+    counts = {"scanned": 0, "escalated": 0, "suppressed": 0, "notices_sent": 0,
               "needs_intake": 0, "dead_lettered": 0, "errors": 0}
+    drafted = 0
 
     with span("job.tick", day=today.isoformat(), run_key=run_key) as s:
+        from ..gateway import Gateway
         from ..supervisor.resilience import CircuitOpen, call_worker
+
+        # One gateway for the whole tick: the registry is read once, not per case.
+        gw = Gateway()
 
         for case in store.open_cases():
             counts["scanned"] += 1
@@ -107,6 +113,31 @@ def run_tick(
                     # missing recollection must never fail a statutory check.
                     _remember(case.student_ref, comp, rung)
                     counts["escalated"] += 1
+
+                    # Delegate: casework drafts, Gemma redacts, family writes,
+                    # Chirp speaks. Bounded per tick so twelve simultaneous
+                    # escalations do not become one burst of ~48 model calls.
+                    if drafted < MAX_NOTICES_PER_TICK:
+                        drafted += 1
+                        try:
+                            res = draft_and_send(case, comp, rung, gateway=gw)
+                            counts["notices_sent"] += 1
+                            log.info("notice for %s in %s (audio=%s)",
+                                     res.student_ref, res.language,
+                                     bool(res.audio_path))
+                        except PipelineFailed as e:
+                            # The escalation is claimed, so the warning is
+                            # recorded -- but no notice went out. A human has
+                            # to draft this one, and must be told.
+                            log.warning("notice pipeline failed for %s: %s",
+                                        case.student_ref, e)
+                            store.dead_letter(
+                                WorkerResult(agent="casework_agent", ok=False,
+                                             error=str(e)[:300]),
+                                student_ref=case.student_ref,
+                                reason="escalation recorded but notice not generated",
+                                run_key=run_key)
+                            counts["dead_lettered"] += 1
                     # TODO(day-4): route to casework_agent through the supervisor
                 else:
                     counts["suppressed"] += 1
