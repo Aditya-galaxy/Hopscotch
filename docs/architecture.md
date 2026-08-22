@@ -194,10 +194,19 @@ the identical content written by the agent itself is allowed — `agent-created`
 maps to `(allow, allow, ask)`, and their comment notes the gate *"only runs when
 `skills.guard_agent_created` is enabled — off by default."*
 
-Their external scanning is genuinely good and this is a default rather than a
-flaw. But a community skill at least had a human author who could be named. A
-self-authored one may encode a web page the model read ten minutes earlier,
-reviewed by nobody.
+Their stated reason is sound and worth quoting: the gate is off because *"the
+agent can already execute the same code paths via terminal() with no gate, so
+the scan adds friction without meaningful security."*
+
+True for an unscoped personal agent. It breaks where governance begins. Once an
+agent holds narrower authority than "run anything" — `family-agent` here has
+`case.read_redacted`, `notify.send`, `media.generate` — a self-authored skill is
+not something it could have done anyway. And persistence differs: a terminal
+command runs once; a skill reloads on every future invocation, including
+sessions that never saw the page that shaped it.
+
+So the tier should follow the agent's authority. AgentX is a scoped fleet, so
+AGENT_AUTHORED is strictest here.
 
 The table is **org-configurable data**, not a hardcoded literal, so a
 compromised publisher can be demoted at 3am without shipping a build.

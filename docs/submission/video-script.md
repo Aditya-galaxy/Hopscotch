@@ -138,7 +138,12 @@ approve=36
 > people it protects.
 >
 > The strictest tier isn't downloaded skills — it's the ones an agent writes
-> for *itself*. Shipping runtimes have that backwards.
+> for *itself*.
+>
+> Shipping runtimes allow those more freely, and their reasoning is good: an
+> agent with a terminal could have run the code anyway. But that stops being
+> true the moment agents are scoped — which is what a fleet is. And a command
+> runs once, where a skill reloads forever.
 
 ---
 

@@ -58,10 +58,10 @@ size thresholds.
 So runtimes started scanning. Good. But scanning catches shape, and the
 interesting attacks are about *meaning*.
 
-## The asymmetry nobody talks about
+## The asymmetry, and the argument against it
 
 I went and read a shipping runtime's scanner. Real work — over a thousand lines
-of static analysis with a trust-tiered install policy. Simplified, the policy is:
+of static analysis with a trust-tiered install policy. Simplified:
 
 | origin | safe | caution | dangerous |
 |---|---|---|---|
@@ -69,19 +69,47 @@ of static analysis with a trust-tiered install policy. Simplified, the policy is
 | agent-created | allow | **allow** | ask |
 
 A skill you download with any finding is blocked. The identical content, written
-by the agent for itself, is allowed. And the comment above that table notes the
-agent-created gate only runs when a flag is enabled — which ships off.
+by the agent for itself, is allowed — and the agent-created gate only runs when
+a config flag is set, which defaults to false.
 
-I want to be fair: their external scanning is better than most, and this is a
-default rather than an engineering failure. But the direction is backwards. A
-community skill at least had a human author who could be named. A self-authored
-one may encode a web page the model read ten minutes earlier, reviewed by
-nobody, and it reloads on every future invocation.
+Here is their reasoning, from the function that reads that flag:
 
-Meanwhile practitioners are actively teaching this. I watched a well-regarded
-founder explain his agent workflow last week: run adversarial QA, then *"turn
-that feedback into a skill."* That is durable, unreviewed, self-authored
-capability, recommended as best practice.
+> *Off by default because the agent can already execute the same code paths via
+> `terminal()` with no gate, so the scan adds friction without meaningful
+> security.*
+
+**That argument is correct, and it is why this matters.**
+
+If your agent already has unrestricted terminal access, gating what it writes
+into a skill file is theatre. It could just run the command. Adding a scan there
+buys friction and no security, and they are right not to ship it on by default.
+
+But the argument has a boundary, and the boundary is the whole point:
+
+**It holds only for agents that are not scoped.** The moment an agent has
+narrower authority than "run anything" — which is what governance means — a
+self-authored skill stops being redundant with terminal access and becomes a
+path to capability the agent was not granted. In the system I built,
+`family-agent` cannot run arbitrary commands. It holds
+`case.read_redacted`, `notify.send`, `media.generate`. A skill it writes for
+itself is not something it could have done anyway.
+
+**And it undersells persistence.** A terminal command executes once, inside one
+session, bounded by the context that produced it. A skill is durable: it
+reloads on every future invocation, including sessions that never saw the web
+page that shaped it. Equal capability at one moment is not equal capability
+forever.
+
+So the fix is not "scan agent-created skills too." It is that the trust tier
+should follow *how much authority the agent has*, and unreviewed self-authored
+capability should be the strictest tier precisely in the systems where agents
+are scoped. Their default is right for a personal agent with a terminal. It is
+wrong for a fleet.
+
+Meanwhile practitioners are actively teaching the pattern. I watched a
+well-regarded founder explain his agent workflow last week: run adversarial QA,
+then *"turn that feedback into a skill."* Durable, unreviewed, self-authored
+capability — recommended as best practice.
 
 ## What I built
 

@@ -140,10 +140,19 @@ forgotten at a new call site; a projection cannot leak a field it never
 returned. Field classification fails closed, so a field added later is withheld
 until someone classifies it.
 
-**The most permissive policy sits on the least reviewed capability.** Read from
-a shipping runtime's own source: a community skill with any finding is blocked,
-while identical content the agent wrote for itself is allowed, with the gate off
-by default. AgentX inverts that.
+**Read the reasoning, not just the policy table.** A shipping runtime blocks a
+community skill with any finding while allowing identical self-authored content,
+with that gate off by default. Their stated reason is sound: the agent can
+already run the same code via `terminal()`, so scanning what it writes adds
+friction without security.
+
+That argument holds for an unscoped personal agent — and breaks exactly where
+governance begins. Once an agent's authority is narrower than "run anything",
+a self-authored skill is no longer something it could have done anyway. And a
+terminal command runs once, while a skill reloads on every future invocation,
+including sessions that never saw the page that shaped it. Equal capability at
+one moment is not equal capability forever. The trust tier should follow how
+much authority the agent has.
 
 ## What's next
 
