@@ -18,7 +18,9 @@ import sys
 from datetime import date, datetime, timezone
 
 from ..config import PROJECT_SLUG
-from ..deadlines import pending_escalation, recompute, superseded_by
+from ..deadlines import (
+    ClockCannotStart, pending_escalation, recompute, superseded_by,
+)
 from ..idempotency import Ledger, escalation_effect, run_key_for
 from ..schemas import DeadlineComputation
 from ..telemetry import span
@@ -49,13 +51,19 @@ def run_tick(
         ledger = FirestoreLedger()
 
     counts = {"scanned": 0, "escalated": 0, "suppressed": 0,
-              "dead_lettered": 0, "errors": 0}
+              "needs_intake": 0, "dead_lettered": 0, "errors": 0}
 
     with span("job.tick", day=today.isoformat(), run_key=run_key) as s:
         from ..supervisor.resilience import CircuitOpen, call_worker
 
         for case in store.open_cases():
             counts["scanned"] += 1
+            # Not an error and not retryable: an illegible signature date means
+            # a human has to read the form. Counted, not dead-lettered, so it
+            # does not refile itself every hour for the life of the case.
+            if case.consent is not None and case.consent.consent_signed_on is None:
+                counts["needs_intake"] += 1
+                continue
             try:
                 result, comp = call_worker(
                     "clock_agent",
@@ -65,6 +73,9 @@ def run_tick(
                     DeadlineComputation,
                     student_ref=case.student_ref,
                 )
+            except ClockCannotStart:
+                counts["needs_intake"] += 1
+                continue
             except CircuitOpen as e:
                 log.warning("circuit open, skipping: %s", e)
                 counts["errors"] += 1

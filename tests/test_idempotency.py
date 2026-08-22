@@ -222,3 +222,39 @@ def test_backoff_gives_up_and_reraises():
 
     with pytest.raises(RuntimeError):
         with_backoff(always, attempts=2, sleep=lambda _: None)
+
+
+# --- illegible consent dates -------------------------------------------------
+
+def test_illegible_date_does_not_start_the_clock():
+    """An unknown signature date is a real, common state, not an error.
+
+    Roughly a fifth of the corpus has an illegible signature. Forcing a date
+    into the schema would make the agent choose between inventing one and
+    failing -- and a statutory clock started from a guessed date is worse than
+    one a human is asked to confirm.
+    """
+    from agentx.deadlines import ClockCannotStart, recompute
+
+    case = a_case()
+    case.consent.consent_signed_on = None
+    with pytest.raises(ClockCannotStart):
+        recompute(case, today=date(2026, 10, 25))
+
+
+def test_tick_counts_illegible_cases_instead_of_dead_lettering_them():
+    """Dead-lettering would refile the same case every hour, forever.
+
+    Over 240 unattended ticks that is 240 rows in a human queue for one form
+    that needs reading once.
+    """
+    case = a_case()
+    case.consent.consent_signed_on = None
+    store = FakeStore([case])
+
+    counts = run_tick(today=date(2026, 10, 25), ledger=InMemoryLedger(), store=store)
+
+    assert counts["needs_intake"] == 1
+    assert counts["dead_lettered"] == 0
+    assert counts["errors"] == 0
+    assert store.dead_letters == []

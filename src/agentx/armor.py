@@ -31,14 +31,14 @@ def _client() -> ma.ModelArmorClient:
     # Model Armor is regional and needs its explicit regional endpoint; the
     # default global host will not resolve the template.
     return ma.ModelArmorClient(client_options=ClientOptions(
-        api_endpoint=f"modelarmor.{settings.location}.rep.googleapis.com"))
+        api_endpoint=f"modelarmor.{settings.armor_location}.rep.googleapis.com"))
 
 
 def template_name() -> str:
     if not settings.project_id:
         raise ArmorUnavailable("GOOGLE_CLOUD_PROJECT is unset")
     tpl = settings.armor_template or TEMPLATE_ID
-    return (f"projects/{settings.project_id}/locations/{settings.location}"
+    return (f"projects/{settings.project_id}/locations/{settings.armor_location}"
             f"/templates/{tpl}")
 
 

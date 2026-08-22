@@ -14,7 +14,7 @@ GEMMA = "gemma-4-26b-a4b-it-maas"   # triage + redaction; global endpoint only
 class Settings:
     project_id: str
     location: str
-    model_location: str
+    armor_location: str
     firestore_db: str
     cases_collection: str
     deadletter_collection: str
@@ -27,12 +27,16 @@ class Settings:
     def from_env(cls) -> "Settings":
         return cls(
             project_id=os.environ.get("GOOGLE_CLOUD_PROJECT", ""),
-            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
-            # Gemini 3.x publisher models are served from the `global` endpoint,
-            # NOT from regional ones -- a regional call 404s even though the
-            # model is listed there. Infra (Cloud Run, Agent Engine, Firestore)
-            # still needs a real region, so these are two separate settings.
-            model_location=os.environ.get("GOOGLE_CLOUD_MODEL_LOCATION", "global"),
+            # GOOGLE_CLOUD_LOCATION is the MODEL location and defaults to
+            # `global`, because Gemini 3.x and Gemma publisher models are served
+            # only from the global endpoint -- a regional call 404s even though
+            # models.list() reports the model as present in that region. ADK
+            # builds its own client from this variable, so it has to be the
+            # model location or every agent call fails.
+            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
+            # Model Armor is genuinely regional and has no global endpoint, so
+            # it carries its own setting rather than inheriting the above.
+            armor_location=os.environ.get("MODEL_ARMOR_LOCATION", "us-central1"),
             firestore_db=os.environ.get("FIRESTORE_DATABASE", "(default)"),
             cases_collection=os.environ.get("CASES_COLLECTION", "cases"),
             deadletter_collection=os.environ.get("DEADLETTER_COLLECTION", "deadletter"),

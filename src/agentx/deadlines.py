@@ -12,6 +12,10 @@ from .config import ESCALATION_LADDER
 from .jurisdictions import JURISDICTIONS, RuleType, SchoolCalendar, demo_calendar
 from .schemas import Case, DeadlineComputation
 
+class ClockCannotStart(ValueError):
+    """The case is not clock-startable yet. Needs a human, not a retry."""
+
+
 _US_FIXED_HOLIDAYS = {(1, 1), (7, 4), (11, 11), (12, 25)}
 
 
@@ -152,6 +156,11 @@ def recompute(case: Case, *, today: date | None = None) -> DeadlineComputation:
     """
     if case.consent is None:
         raise ValueError(f"{case.student_ref} has no consent event; clock not started")
+    if case.consent.consent_signed_on is None:
+        raise ClockCannotStart(
+            f"{case.student_ref}: consent signature date is illegible. A "
+            "statutory clock started from a guessed date is worse than one a "
+            "human is asked to confirm.")
     return compute_deadline(
         student_ref=case.student_ref,
         jurisdiction_key=case.jurisdiction,

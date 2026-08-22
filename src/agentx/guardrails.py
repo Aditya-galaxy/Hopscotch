@@ -26,28 +26,22 @@ class ScreenResult:
 def screen_inbound(text: str, *, source: str) -> ScreenResult:
     """Model Armor check on anything that entered from outside the district.
 
-    TODO(day-7): call the Model Armor sanitizeUserPrompt endpoint against
-    settings.armor_template. The local heuristic below exists so the pipeline
-    is testable offline -- it is NOT the guardrail and must not ship as one.
+    Same boundary as the skill gate's injection reviewer, different subject:
+    there it is a capability the agent will absorb, here it is a scanned
+    evaluation that arrived from a parent's phone. Both can carry instructions
+    aimed at the model.
     """
     with span("guardrail.screen_inbound", source=source, chars=len(text)) as s:
-        if settings.armor_template:
-            raise NotImplementedError(
-                "Wire Model Armor here on day 7; see deploy/probe.sh output."
-            )
-        lowered = text.lower()
-        tells = [
-            p for p in (
-                "ignore previous", "ignore prior", "disregard the above",
-                "system prompt", "you are now", "mark this case closed",
-            ) if p in lowered
-        ]
-        s.set_attribute("findings", len(tells))
-        return ScreenResult(
-            allowed=not tells,
-            findings=tells,
-            sanitized="" if tells else text,
-        )
+        from .armor import screen
+
+        result = screen(text, subject=source)
+        s.set_attribute("matched", result.matched)
+        if result.matched:
+            findings = [f"{f.detail}"
+                        + (f"@{f.confidence}" if f.confidence else "")
+                        for f in result.findings]
+            return ScreenResult(allowed=False, findings=findings, sanitized="")
+        return ScreenResult(allowed=True, findings=[], sanitized=text)
 
 
 def redact_clinical(text: str, *, student_ref: str) -> tuple[str, bool]:

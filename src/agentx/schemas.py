@@ -34,8 +34,11 @@ class ConsentEvent(BaseModel):
     student_ref: str = Field(description="Opaque student id, never a name")
     school_code: str
     jurisdiction: str = Field(description="Key into JURISDICTIONS")
-    consent_signed_on: date
-    received_on: date
+    consent_signed_on: date | None = Field(
+        default=None,
+        description="None when the signature date is illegible. The clock does "
+                    "NOT start on an unknown date -- that case goes to a human.")
+    received_on: date | None = None
     referral_reason: str = ""
     confidence: float = Field(ge=0.0, le=1.0)
     source_document: str

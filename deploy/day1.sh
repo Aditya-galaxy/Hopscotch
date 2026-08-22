@@ -135,7 +135,7 @@ say "7/9  deploy the job"
 gcloud run jobs deploy "$JOB" \
   --source . --region="$REGION" --project="$PROJECT_ID" \
   --service-account="$RUN_SA@$PROJECT_ID.iam.gserviceaccount.com" \
-  --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION,GOOGLE_CLOUD_MODEL_LOCATION=global,MODEL_ARMOR_TEMPLATE=$ARMOR_TEMPLATE" \
+  --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=global,MODEL_ARMOR_LOCATION=$REGION,MODEL_ARMOR_TEMPLATE=$ARMOR_TEMPLATE" \
   --max-retries=1 --task-timeout=10m --memory=512Mi
 
 say "8/9  schedule it (hourly)"
