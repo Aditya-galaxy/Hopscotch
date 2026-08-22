@@ -206,6 +206,47 @@ compromised publisher can be demoted at 3am without shipping a build.
 
 ---
 
+## The gateway: two levels, not one
+
+**Level 1 — authorize.** Refuse a call an agent holds no scope for. Necessary,
+and where most systems stop.
+
+**Level 2 — project.** Shape the *data* to the caller's identity.
+`family-agent` does not receive clinical fields and then decline to use them —
+it never receives them. A check can be forgotten at a new call site; a
+projection cannot leak a field it never returned.
+
+What each identity actually receives from the same case:
+
+| Agent | Ceiling | Consent fields returned | Clinical visible |
+|---|---|---|---|
+| `casework-agent` | clinical | 8 | **yes** |
+| `clock-agent` | administrative | 7 | no |
+| `family-agent` | directory | 0 | no |
+
+Field classification **fails closed**: anything unlisted is treated as
+clinical, so a field added to the schema later is withheld until someone
+classifies it. That is not theoretical — the first version of this table
+omitted the nested consent fields, and the test suite caught `clock-agent`
+losing access to dates it legitimately needs. The alternative default,
+"unlisted means public", makes every future schema change a potential leak that
+nobody reviews.
+
+Denials are audited to Firestore with the reason and what *was* allowed. A
+silent refusal is unfixable — the coordinator sees an agent "not working" with
+no way to learn it was policy.
+
+```
+family-agent (Family liaison) may not 'case.read_full'.
+Declared scopes: case.read_redacted, media.generate, notify.send
+```
+
+The family handoff keeps its independent redaction check anyway. The two
+mechanisms are deliberately unrelated, so one silently breaking does not open
+the boundary.
+
+---
+
 ## Agent Registry: what is managed, what is substituted
 
 Google's managed **Agent Registry** is part of the Gemini Enterprise Agent
