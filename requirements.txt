@@ -8,3 +8,4 @@ opentelemetry-sdk
 opentelemetry-exporter-gcp-trace
 pydantic>=2
 pytest
+pyyaml

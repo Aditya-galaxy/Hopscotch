@@ -8,3 +8,4 @@ data/generated/
 *.mp4
 *.wav
 .DS_Store
+data/corpora/

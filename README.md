@@ -55,6 +55,54 @@ if redaction did not run.
 supervisor, adjudication only. Gemma for on-path clinical redaction. Chirp and
 Veo for the family-facing packet.
 
+## The capability gate
+
+Agents gain capability through [Agent Skills](https://agentskills.io) — a folder
+with a `SKILL.md`, an open format originally released by Anthropic and now read
+by roughly 45 runtimes. Skills are portable across runtimes by design.
+Provenance is not.
+
+Every skill passes one door before Registry signs it and Gateway will load it —
+downloaded, imported from another runtime, or written by the agent for itself.
+
+**Two properties are load-bearing:**
+
+*Fail closed.* A reviewer that errors or is not yet wired does not become an
+approval. "We could not check" and "we checked and it was fine" are different
+answers, and only one is safe to conflate with yes.
+
+*Self-authored capability is the strictest tier, not the loosest.* Shipping
+runtimes invert this. Read from Hermes Agent's own `tools/skills_guard.py`, a
+**community** skill with any finding is blocked, while the identical content
+written by the agent itself is allowed — `agent-created` maps to
+`(allow, allow, ask)`, and their comment notes the gate *"only runs when
+`skills.guard_agent_created` is enabled — off by default."* Their external
+scanning is genuinely good; this is a default, not a flaw. But a community
+skill at least had a human author who could be named. A self-authored one may
+encode a web page the model read ten minutes earlier, reviewed by nobody.
+
+### Why a model call, and not a bigger rule list
+
+```
+$ python -m agentx.skills.cli data/replicas/credential-helper --structural-only
+APPROVE   credential-helper                ecfc13fcf54e
+          origin=community; verdict=safe
+```
+
+That skill instructs the agent to read `~/.aws/credentials`, attach them to an
+outbound header, and omit both steps from its summary. It has no shell, no
+binary, and no regex-matchable signature — static analysis is *correct* that
+nothing is structurally wrong. It is ordinary English, which is precisely what
+pattern matching cannot read and what the intent reviewer exists for.
+
+Meanwhile all 36 skills in the real benign corpus pass clean. A gate with false
+positives gets disabled by the people it was built to help.
+
+```bash
+./scripts/fetch_corpora.sh
+python -m agentx.skills.cli data/corpora/mattpocock-skills --all --structural-only
+```
+
 ## Idempotency
 
 The tick runs hourly and unattended — roughly 240 executions across the build.
