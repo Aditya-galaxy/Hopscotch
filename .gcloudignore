@@ -1,0 +1,14 @@
+# Keep the Cloud Build upload to what the job actually runs.
+# Without this, .venv alone is hundreds of megabytes per deploy.
+.git/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+data/corpora/
+tests/
+docs/
+.DS_Store
+*.mp4
+*.wav

@@ -44,17 +44,35 @@ gcloud services enable \
   modelarmor.googleapis.com billingbudgets.googleapis.com \
   --project="$PROJECT_ID"
 
-say "3/9  budget alert (\$${BUDGET_USD})"
-# You are personally liable above the credit cap. This is not optional.
+say "3/9  budget alert"
+# Two things bite here. The amount must be in the BILLING ACCOUNT's currency --
+# passing 60USD to an INR account is rejected as INVALID_ARGUMENT with no hint
+# about why. And --filter-projects wants projects/{project_id}, not the project
+# number. Neither is fatal to the build, so a failure warns loudly and carries
+# on rather than stranding the bootstrap over an alert.
+CURRENCY="$(gcloud beta billing accounts describe "$BILLING_ACCOUNT" \
+  --format='value(currencyCode)' 2>/dev/null || echo USD)"
+: "${BUDGET_AMOUNT:=}"
+if [ -z "$BUDGET_AMOUNT" ]; then
+  case "$CURRENCY" in
+    USD) BUDGET_AMOUNT=60 ;;
+    INR) BUDGET_AMOUNT=5000 ;;
+    EUR|GBP) BUDGET_AMOUNT=55 ;;
+    *)   BUDGET_AMOUNT=60 ;;
+  esac
+fi
 if gcloud billing budgets list --billing-account="$BILLING_ACCOUNT" \
      --format='value(displayName)' 2>/dev/null | grep -qx "agentx"; then
   echo "    exists"
+elif gcloud billing budgets create \
+      --billing-account="$BILLING_ACCOUNT" --display-name="agentx" \
+      --budget-amount="$BUDGET_AMOUNT" \
+      --threshold-rule=percent=0.5 --threshold-rule=percent=0.9 \
+      --filter-projects="projects/$PROJECT_ID" >/dev/null 2>&1; then
+  echo "    ${BUDGET_AMOUNT} ${CURRENCY}, alerts at 50% and 90%"
 else
-  gcloud billing budgets create \
-    --billing-account="$BILLING_ACCOUNT" --display-name="agentx" \
-    --budget-amount="${BUDGET_USD}USD" \
-    --threshold-rule=percent=0.5 --threshold-rule=percent=0.9 \
-    --filter-projects="projects/$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+  echo "    WARNING: budget not created. Set one by hand before you walk away --"
+  echo "    you are personally liable above the credit cap."
 fi
 
 say "4/9  firestore"
@@ -99,6 +117,20 @@ for role in roles/datastore.user roles/cloudtrace.agent \
 done
 echo "    datastore.user, cloudtrace.agent, aiplatform.user, modelarmor.user"
 
+# Cloud Build runs as the project's default compute service account, and on
+# projects created before the current defaults it lacks read access to its OWN
+# source-upload bucket. The failure surfaces as a 403 storage.objects.get on a
+# run-sources-* object, which reads like a bug in your build rather than a
+# missing grant. Do it before the first deploy, not after the first confusing
+# error.
+PNUM="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+BUILD_SA="${PNUM}-compute@developer.gserviceaccount.com"
+for role in roles/cloudbuild.builds.builder roles/storage.objectViewer \
+            roles/artifactregistry.writer roles/logging.logWriter; do
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:$BUILD_SA" --role="$role" --condition=None >/dev/null 2>&1 || true
+done
+
 say "7/9  deploy the job"
 gcloud run jobs deploy "$JOB" \
   --source . --region="$REGION" --project="$PROJECT_ID" \
@@ -114,9 +146,19 @@ if ! have "gcloud iam service-accounts describe $SCHED_SA@$PROJECT_ID.iam.gservi
   gcloud iam service-accounts create "$SCHED_SA" \
     --display-name="AgentX scheduler" --project="$PROJECT_ID"
 fi
-gcloud run jobs add-iam-policy-binding "$JOB" --region="$REGION" --project="$PROJECT_ID" \
-  --member="serviceAccount:$SCHED_SA@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role=roles/run.invoker >/dev/null
+# IAM is eventually consistent: a service account created a second ago is not
+# yet visible to the binding API, which reports "does not exist" rather than
+# "not yet". Wait for it instead of failing the bootstrap on a race.
+for attempt in 1 2 3 4 5 6; do
+  if gcloud run jobs add-iam-policy-binding "$JOB" --region="$REGION" \
+       --project="$PROJECT_ID" \
+       --member="serviceAccount:$SCHED_SA@$PROJECT_ID.iam.gserviceaccount.com" \
+       --role=roles/run.invoker >/dev/null 2>&1; then
+    break
+  fi
+  [ "$attempt" = 6 ] && { echo "    scheduler binding failed after 6 tries"; exit 1; }
+  sleep 5
+done
 
 URI="https://run.googleapis.com/v2/projects/$PROJECT_ID/locations/$REGION/jobs/$JOB:run"
 if have "gcloud scheduler jobs describe agentx-hourly --location=$REGION --project=$PROJECT_ID"; then
