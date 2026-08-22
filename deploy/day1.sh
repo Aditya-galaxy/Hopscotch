@@ -13,22 +13,30 @@ REGION="${REGION:-us-central1}"
 JOB="agentx-tick"
 RUN_SA="agentx-tick"
 SCHED_SA="agentx-scheduler"
+ARMOR_TEMPLATE="${ARMOR_TEMPLATE:-agentx-skill-review}"
 BUDGET_USD="${BUDGET_USD:-60}"
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 have() { eval "$1" >/dev/null 2>&1; }
 
-say "1/8  project"
+say "1/9  project"
 if have "gcloud projects describe $PROJECT_ID"; then
   echo "    exists"
 else
   gcloud projects create "$PROJECT_ID"
 fi
 gcloud config set project "$PROJECT_ID" >/dev/null
-gcloud billing projects link "$PROJECT_ID" --billing-account="$BILLING_ACCOUNT" >/dev/null
-echo "    billing linked to $BILLING_ACCOUNT"
+if [ "$(gcloud billing projects describe "$PROJECT_ID" --format='value(billingEnabled)' 2>/dev/null)" = "True" ]; then
+  echo "    billing already enabled"
+else
+  # Billing accounts cap how many projects they may fund. If this fails with a
+  # quota error, free a slot or build in a project that is already funded --
+  # do not burn a day on it.
+  gcloud billing projects link "$PROJECT_ID" --billing-account="$BILLING_ACCOUNT" >/dev/null
+  echo "    billing linked to $BILLING_ACCOUNT"
+fi
 
-say "2/8  APIs"
+say "2/9  APIs"
 gcloud services enable \
   aiplatform.googleapis.com run.googleapis.com cloudbuild.googleapis.com \
   artifactregistry.googleapis.com firestore.googleapis.com pubsub.googleapis.com \
@@ -36,7 +44,7 @@ gcloud services enable \
   modelarmor.googleapis.com billingbudgets.googleapis.com \
   --project="$PROJECT_ID"
 
-say "3/8  budget alert (\$${BUDGET_USD})"
+say "3/9  budget alert (\$${BUDGET_USD})"
 # You are personally liable above the credit cap. This is not optional.
 if gcloud billing budgets list --billing-account="$BILLING_ACCOUNT" \
      --format='value(displayName)' 2>/dev/null | grep -qx "agentx"; then
@@ -49,35 +57,56 @@ else
     --filter-projects="projects/$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
 fi
 
-say "4/8  firestore"
+say "4/9  firestore"
 if have "gcloud firestore databases describe --database='(default)' --project=$PROJECT_ID"; then
   echo "    exists"
 else
   gcloud firestore databases create --location="$REGION" --project="$PROJECT_ID"
 fi
 
-say "5/8  runtime identity (least privilege)"
+say "5/9  model armor template"
+# Model Armor is REGIONAL and only answers on its regional endpoint. Without
+# this override gcloud hits the default host and reports PERMISSION_DENIED on a
+# project you plainly have access to -- a genuinely misleading error. Set as an
+# env var rather than `gcloud config set` so this script never mutates the
+# user's persistent configuration.
+export CLOUDSDK_API_ENDPOINT_OVERRIDES_MODELARMOR="https://modelarmor.${REGION}.rep.googleapis.com/"
+if have "gcloud model-armor templates describe $ARMOR_TEMPLATE --location=$REGION --project=$PROJECT_ID"; then
+  echo "    exists"
+else
+  gcloud model-armor templates create "$ARMOR_TEMPLATE" \
+    --location="$REGION" --project="$PROJECT_ID" \
+    --pi-and-jailbreak-filter-settings-enforcement=enabled \
+    --pi-and-jailbreak-filter-settings-confidence-level=low-and-above \
+    --malicious-uri-filter-settings-enforcement=enabled
+fi
+echo "    screens scanned documents AND SKILL.md content -- same boundary,"
+echo "    two subjects. Confidence low-and-above: a missed injection costs more"
+echo "    than a coordinator dismissing a false positive."
+
+say "6/9  runtime identity (least privilege)"
 # The job gets exactly two roles. Not Editor. The whole project is about
 # per-agent scoping -- starting with an over-permissioned runtime undercuts it.
 if ! have "gcloud iam service-accounts describe $RUN_SA@$PROJECT_ID.iam.gserviceaccount.com --project=$PROJECT_ID"; then
   gcloud iam service-accounts create "$RUN_SA" \
     --display-name="AgentX tick runtime" --project="$PROJECT_ID"
 fi
-for role in roles/datastore.user roles/cloudtrace.agent; do
+for role in roles/datastore.user roles/cloudtrace.agent \
+            roles/aiplatform.user roles/modelarmor.user; do
   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:$RUN_SA@$PROJECT_ID.iam.gserviceaccount.com" \
     --role="$role" --condition=None >/dev/null
 done
-echo "    datastore.user + cloudtrace.agent"
+echo "    datastore.user, cloudtrace.agent, aiplatform.user, modelarmor.user"
 
-say "6/8  deploy the job"
+say "7/9  deploy the job"
 gcloud run jobs deploy "$JOB" \
   --source . --region="$REGION" --project="$PROJECT_ID" \
   --service-account="$RUN_SA@$PROJECT_ID.iam.gserviceaccount.com" \
-  --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION" \
+  --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION,GOOGLE_CLOUD_MODEL_LOCATION=global,MODEL_ARMOR_TEMPLATE=$ARMOR_TEMPLATE" \
   --max-retries=1 --task-timeout=10m --memory=512Mi
 
-say "7/8  schedule it (hourly)"
+say "8/9  schedule it (hourly)"
 # Hourly, not daily. Same near-zero cost -- the job scales to zero between runs
 # -- but by submission the trace history is ~240 unattended executions instead
 # of 10. Trace density is what makes the "weeks of async operation" claim land.
@@ -100,7 +129,7 @@ else
     --oauth-service-account-email="$SCHED_SA@$PROJECT_ID.iam.gserviceaccount.com"
 fi
 
-say "8/8  first run"
+say "9/9  first run"
 gcloud scheduler jobs run agentx-hourly --location="$REGION" --project="$PROJECT_ID"
 
 cat <<DONE

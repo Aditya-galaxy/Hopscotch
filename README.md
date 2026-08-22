@@ -211,6 +211,28 @@ make probe       # day-1 provisioning probe
 make tick        # one tick against Firestore
 ```
 
+## Model Armor
+
+`deploy/day1.sh` creates the template; `src/agentx/armor.py` is the single
+boundary that uses it, for two subjects — a scanned evaluation that arrived from
+a parent's phone, and a `SKILL.md` the agent is about to absorb as a permanent
+capability. Both are text from outside the trust boundary that can carry
+instructions aimed at the model.
+
+Confidence is set to `low-and-above` deliberately: a missed injection near a
+student record costs more than a coordinator dismissing a false positive.
+
+Two operational notes, both learned the hard way:
+
+- Model Armor is **regional** and only answers on its regional endpoint. Without
+  `CLOUDSDK_API_ENDPOINT_OVERRIDES_MODELARMOR`, gcloud hits the default host and
+  reports `PERMISSION_DENIED` on a project you plainly have access to. The
+  script sets it as an env var so it never mutates your gcloud config.
+- Gemini 3.x and Gemma publisher models are served from the **`global`**
+  endpoint and 404 regionally even though `models.list()` reports them present
+  there. Hence `GOOGLE_CLOUD_MODEL_LOCATION` separate from
+  `GOOGLE_CLOUD_LOCATION`.
+
 ## Deploy
 
 ```bash
