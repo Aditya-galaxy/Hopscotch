@@ -165,3 +165,60 @@ def test_late_discovery_sends_one_notice_not_three():
     assert len(store.audits) == 1
     assert store.audits[0][0] == escalation_effect("stu_0001", 2)
     assert sorted(store._cases["stu_0001"].escalations_sent) == [2, 7, 14]
+
+
+# --- transient vs permanent --------------------------------------------------
+
+def test_permanent_failures_are_not_retried():
+    """Classified by type, not by message.
+
+    An earlier version substring-matched, and ArmorUnavailable -- which means
+    "no template configured" -- was retried three times because its class name
+    contains "unavailable".
+    """
+    from agentx.armor import ArmorUnavailable
+    from agentx.genai import CredentialsMissing
+    from agentx.supervisor.resilience import is_transient
+
+    for e in (ArmorUnavailable("no template"), CredentialsMissing("no key"),
+              NotImplementedError("not wired"), ValueError("bad shape")):
+        assert not is_transient(e), f"{type(e).__name__} must not be retried"
+
+
+def test_rate_limits_are_retried():
+    from agentx.supervisor.resilience import is_transient
+
+    class ClientError(Exception):
+        pass
+
+    assert is_transient(ClientError("429 RESOURCE_EXHAUSTED"))
+    assert is_transient(ClientError("503 Service Unavailable"))
+    assert is_transient(TimeoutError("timed out"))
+
+
+def test_backoff_retries_then_succeeds():
+    from agentx.supervisor.resilience import with_backoff
+
+    slept: list[float] = []
+    calls = {"n": 0}
+
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise RuntimeError("429 RESOURCE_EXHAUSTED")
+        return "ok"
+
+    assert with_backoff(flaky, sleep=slept.append) == "ok"
+    assert calls["n"] == 3
+    assert len(slept) == 2
+    assert slept[1] > slept[0], "backoff is not increasing"
+
+
+def test_backoff_gives_up_and_reraises():
+    from agentx.supervisor.resilience import with_backoff
+
+    def always():
+        raise RuntimeError("429 RESOURCE_EXHAUSTED")
+
+    with pytest.raises(RuntimeError):
+        with_backoff(always, attempts=2, sleep=lambda _: None)

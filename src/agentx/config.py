@@ -7,7 +7,7 @@ PROJECT_SLUG = "agentx"
 
 FLASH = "gemini-3.5-flash"          # required: Gemini 3.5 or newer
 PRO = "gemini-3.5-pro"              # supervisor adjudication only -- cost control
-GEMMA = "gemma-3-12b-it"            # on-path redaction; confirm exact id at provision time
+GEMMA = "gemma-4-26b-a4b-it-maas"   # triage + redaction; global endpoint only
 
 
 @dataclass(frozen=True)

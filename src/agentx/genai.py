@@ -13,9 +13,10 @@ import os
 from google import genai
 
 from .config import settings
+from .supervisor.resilience import PermanentFailure
 
 
-class CredentialsMissing(RuntimeError):
+class CredentialsMissing(PermanentFailure):
     """Raised instead of guessing. A reviewer that cannot authenticate must
     fail closed, not silently return 'nothing found'."""
 

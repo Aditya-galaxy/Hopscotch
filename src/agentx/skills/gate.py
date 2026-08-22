@@ -23,6 +23,7 @@ from .policy import TrustPolicy
 from .reviewers import (
     InjectionReviewer, IntentReviewer, Reviewer, StructuralReviewer, TriageReviewer,
 )
+from ..supervisor.resilience import with_backoff
 from ..telemetry import span
 
 _ORDER = {Verdict.SAFE: 0, Verdict.CAUTION: 1, Verdict.DANGEROUS: 2}
@@ -53,7 +54,7 @@ def review(
     with span("skills.gate", skill=pkg.name, origin=pkg.origin.value) as s:
         for r in reviewers:
             try:
-                results.append(r.review(pkg))
+                results.append(with_backoff(lambda r=r: r.review(pkg)))
             except NotImplementedError as e:
                 unavailable.append(r.name)
                 results.append(ReviewerResult(reviewer=r.name, ok=False,

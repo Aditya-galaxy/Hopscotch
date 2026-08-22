@@ -12,6 +12,7 @@ The answer has four layers, in order:
 """
 from __future__ import annotations
 
+import random
 import time
 from dataclasses import dataclass, field
 from typing import Callable, TypeVar
@@ -26,6 +27,16 @@ T = TypeVar("T", bound=BaseModel)
 MAX_ATTEMPTS = 3
 BREAKER_THRESHOLD = 3
 BREAKER_COOLDOWN_S = 300
+
+
+class PermanentFailure(RuntimeError):
+    """Retrying will not help. Misconfiguration, bad credentials, bad input.
+
+    Classified by TYPE, not by message. An earlier version matched substrings,
+    and ArmorUnavailable -- which means "you did not configure a template" --
+    got retried three times with backoff because its class name contains
+    "unavailable". Names are not error semantics.
+    """
 
 
 class CircuitOpen(RuntimeError):
@@ -101,3 +112,50 @@ def call_worker(
     BREAKER.record_failure(agent)
     return WorkerResult(agent=agent, ok=False, attempt=max_attempts,
                         error=last_error), None
+
+
+# ---------------------------------------------------------------------------
+# Transient failure handling
+# ---------------------------------------------------------------------------
+
+TRANSIENT_MARKERS = (
+    "429", "resource_exhausted", "quota exceeded",
+    "503", "service unavailable", "deadline exceeded", "timed out",
+    "timeout", "internal error", "connection reset",
+)
+
+
+def is_transient(exc: BaseException) -> bool:
+    """Rate limits and blips are worth retrying. Auth and bad input are not.
+
+    Getting this wrong in either direction is costly: retrying a permanent
+    error burns quota to fail slower, and failing closed on a rate limit floods
+    a human queue with work that was never actually suspicious -- which is how
+    a review tool ends up switched off.
+    """
+    if isinstance(exc, (PermanentFailure, NotImplementedError, ValueError,
+                        PermissionError, TypeError, KeyError)):
+        return False
+    text = f"{type(exc).__name__} {exc}".lower()
+    return any(m in text for m in TRANSIENT_MARKERS)
+
+
+def with_backoff(fn: Callable[[], T], *, attempts: int = 3, base: float = 2.0,
+                 sleep: Callable[[float], None] = time.sleep) -> T:
+    """Retry transient failures with exponential backoff and jitter.
+
+    Jitter matters here: a catalogue sweep fires hundreds of calls, and
+    un-jittered backoff makes every one of them retry in lockstep, reproducing
+    the burst that caused the rate limit.
+    """
+    last: BaseException | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return fn()
+        except Exception as e:
+            last = e
+            if not is_transient(e) or attempt == attempts:
+                raise
+            delay = (base ** (attempt - 1)) * (1.0 + random.random() * 0.5)
+            sleep(delay)
+    raise last  # unreachable; keeps type checkers honest

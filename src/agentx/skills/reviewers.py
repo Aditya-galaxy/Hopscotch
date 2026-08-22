@@ -22,6 +22,8 @@ MAX_SINGLE_KB = 256
 # The body is untrusted text that may be 22MB of padding. Bound what reaches
 # the model, and treat the truncation itself as reportable.
 MAX_BODY_CHARS = 24_000
+# Triage is the cheap pass; it gets less of the body on purpose.
+MAX_TRIAGE_CHARS = 6_000
 
 
 class Reviewer(Protocol):
@@ -218,24 +220,144 @@ class IntentReviewer:
 class InjectionReviewer:
     """Model Armor on SKILL.md.
 
-    Same boundary as guardrails.screen_inbound, different subject: there the
-    hostile document is a scanned evaluation, here it is a capability the agent
-    is about to absorb permanently.
+    Same boundary as the one screening scanned evaluations, different subject:
+    there the hostile document is a parent's phone photo, here it is a
+    capability the agent is about to absorb permanently.
+
+    Worth stating because it is counter-intuitive: a skill is *supposed* to
+    contain instructions. Model Armor is looking for instructions aimed at
+    subverting the reading agent -- "ignore previous instructions", claimed
+    prior approval, jailbreak framing -- not for imperative mood.
     """
 
     name = "injection"
 
+    _SEVERITY = {
+        "HIGH": Severity.CRITICAL,
+        "MEDIUM_AND_ABOVE": Severity.HIGH,
+        "LOW_AND_ABOVE": Severity.MEDIUM,
+    }
+
     def review(self, pkg: SkillPackage) -> ReviewerResult:
         with span("skills.review.injection", skill=pkg.name):
-            raise NotImplementedError("Wire Model Armor on day 5")
+            from ..armor import screen
+
+            text = f"{pkg.description}\n\n{pkg.body}"[:MAX_BODY_CHARS]
+            result = screen(text, subject=f"skill:{pkg.name}")
+            if not result.matched:
+                return ReviewerResult(reviewer=self.name)
+
+            severity = self._SEVERITY.get(result.worst_confidence, Severity.MEDIUM)
+            findings = [
+                Finding(
+                    reviewer=self.name,
+                    category=(Category.OBFUSCATION if f.detail == "malicious_uri"
+                              else Category.INJECTION),
+                    severity=severity,
+                    summary=f"Model Armor matched {f.detail}"
+                            + (f" at {f.confidence} confidence" if f.confidence else ""),
+                    evidence=f.filter_name,
+                )
+                for f in result.findings
+            ]
+            return ReviewerResult(reviewer=self.name, findings=findings)
+
+
+TRIAGE_PROMPT = """\
+You are a cheap first-pass classifier for a security review queue. Classify one
+Agent Skill by SECURITY risk only. Ignore code quality, performance, and
+maintainability -- another system handles those.
+
+Answer with EXACTLY ONE WORD on the first line, then one short sentence on the
+second line. The first word must be one of:
+
+NONE  ordinary developer or writing work -- editing code, running tests,
+      installing packages, git operations, formatting, documentation.
+LOW   touches credentials, secrets, network egress, or the home directory in a
+      way the description does not obviously require.
+HIGH  reads secrets it has no reason to read, sends data somewhere the
+      description never mentions, or tells the agent to hide a step.
+
+Most skills are NONE. Say NONE when it is NONE.
+
+Example answer:
+NONE
+Installs a pre-commit hook and formats staged files.
+
+--- BEGIN {fence} ---
+NAME: {name}
+DESCRIPTION: {description}
+
+{body}
+--- END {fence} ---
+"""
+
+_RISK_TOKENS = {"NONE": "none", "LOW": "low", "HIGH": "high"}
+
+
+def parse_triage(text: str) -> tuple[str, str]:
+    """Read a risk band out of a small model's free text.
+
+    Gemma on Vertex treats response_schema as a hint rather than a constraint --
+    it will happily invent fields and return "Medium" for an enum of
+    none/low/high. Gemini enforces the schema; Gemma does not. So the cheap
+    reviewer uses an output format a cheap model can actually hit: one word,
+    parsed here. Anything unrecognisable raises, and the gate fails closed.
+    """
+    lines = [l.strip() for l in (text or "").strip().splitlines() if l.strip()]
+    if not lines:
+        raise ValueError("triage returned nothing")
+    for line in lines[:3]:
+        token = line.strip().strip('"\'`*#.:').split()[0].upper() if line.split() else ""
+        if token in _RISK_TOKENS:
+            reason = lines[1] if len(lines) > 1 and lines[1] is not line else ""
+            idx = lines.index(line)
+            reason = lines[idx + 1] if len(lines) > idx + 1 else ""
+            return _RISK_TOKENS[token], reason
+    raise ValueError(f"no risk band in triage output: {text[:120]!r}")
 
 
 class TriageReviewer:
-    """Gemma first pass. Cheap enough to run across a whole catalogue nightly."""
+    """Gemma first pass. Cheap enough to sweep a whole catalogue nightly.
+
+    Deliberately coarse. Its job is to keep obvious junk away from a paid model
+    call and to give the queue a sort order -- not to be right about subtle
+    cases. Only `high` becomes a finding; `low` is recorded as a note so it
+    influences ordering without, on its own, blocking an install.
+    """
 
     name = "triage"
     model = GEMMA
 
+    def __init__(self, client=None) -> None:
+        self._client = client
+
+    def _resolve(self):
+        if self._client is not None:
+            return self._client
+        from ..genai import client
+        return client()
+
     def review(self, pkg: SkillPackage) -> ReviewerResult:
         with span("skills.review.triage", skill=pkg.name, model=self.model):
-            raise NotImplementedError("Wire Gemma on day 5")
+            from google.genai import types
+
+            fence = f"SKILL-{secrets.token_hex(8)}"
+            resp = self._resolve().models.generate_content(
+                model=self.model,
+                contents=TRIAGE_PROMPT.format(
+                    fence=fence, name=pkg.name, description=pkg.description,
+                    body=pkg.body[:MAX_TRIAGE_CHARS],
+                ),
+                config=types.GenerateContentConfig(
+                    temperature=0.0, max_output_tokens=120),
+            )
+            risk, reason = parse_triage(resp.text)
+
+            if risk == "high":
+                return ReviewerResult(reviewer=self.name, note=reason, findings=[
+                    Finding(reviewer=self.name, category=Category.INTENT_MISMATCH,
+                            severity=Severity.HIGH,
+                            summary=reason or "Triage flagged high security risk"),
+                ])
+            return ReviewerResult(reviewer=self.name, note=f"risk={risk}: {reason}")
