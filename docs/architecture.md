@@ -1,0 +1,267 @@
+# Architecture
+
+AgentX is an always-on agent fleet that runs a school district's special
+education compliance office, plus the governance that makes a district
+*permitted* to run it near student records.
+
+Three layers. The third is what most agent systems skip.
+
+---
+
+## System overview
+
+```mermaid
+flowchart TB
+    subgraph trigger[" "]
+        SCH["Cloud Scheduler<br/><i>hourly</i>"]
+        PS["Pub/Sub<br/><i>document arrival</i>"]
+    end
+
+    subgraph L2["LAYER 2 · Governance plane"]
+        GW["Agent Gateway<br/><i>deny by default</i>"]
+        ID["Agent Identity<br/><i>SPIFFE, per agent</i>"]
+        MA["Model Armor<br/><i>inline guardrail</i>"]
+        REG["Agent Registry<br/><i>versioned, dept-scoped</i>"]
+    end
+
+    subgraph L1["LAYER 1 · Operational fleet"]
+        CO["coordinator<br/><i>gemini-3.5-pro</i>"]
+        IN["intake-agent"]
+        CL["clock-agent"]
+        CW["casework-agent"]
+        FA["family-agent"]
+    end
+
+    subgraph L3["LAYER 3 · Capability gate"]
+        GATE["skill review<br/><i>4 reviewers</i>"]
+    end
+
+    subgraph state[" "]
+        FS[("Firestore<br/><i>cases · audit · effects</i>")]
+        MB[("Memory Bank<br/><i>cross-session</i>")]
+        CT["Cloud Trace<br/><i>OTel spans</i>"]
+    end
+
+    SCH --> JOB["Cloud Run Job<br/><i>scales to zero</i>"]
+    PS --> JOB
+    JOB --> CO
+    CO --> GW
+    GW -.authorizes on.-> ID
+    GW -.scopes from.-> REG
+    GW --> IN & CL & CW & FA
+    IN --> MA
+    MA --> FS
+    CL --> FS
+    CW --> FA
+    FA --> MB
+    GATE --> REG
+    MA --> GATE
+    CO -.spans.-> CT
+    GW -.audit.-> FS
+
+    classDef gov fill:#1F5C3D,stroke:#123a26,color:#fff
+    classDef fleet fill:#E3EDE7,stroke:#1F5C3D,color:#12271c
+    classDef store fill:#EEEDE7,stroke:#8a8f86,color:#12271c
+    class GW,ID,MA,REG gov
+    class CO,IN,CL,CW,FA,GATE fleet
+    class FS,MB,CT store
+```
+
+---
+
+## Why a fleet, and not one agent
+
+The work crosses four departments with **legally distinct** access rights. A
+school psychologist's clinical findings are data a front-office aide is not
+permitted to read. The boundary is not architecture invented to satisfy a
+rubric — it is the reason per-agent identity has to exist.
+
+```mermaid
+flowchart LR
+    subgraph sens["Data sensitivity"]
+        D1["directory<br/><i>name, school, grade</i>"]
+        D2["administrative<br/><i>dates, stage</i>"]
+        D3["clinical<br/><i>evaluation findings</i>"]
+    end
+
+    IN["intake-agent<br/><i>front office</i>"] --> D1
+    CL["clock-agent<br/><i>SPED admin</i>"] --> D2
+    CW["casework-agent<br/><i>school psychology</i>"] --> D3
+    FA["family-agent<br/><i>family liaison</i>"] --> D1
+
+    D3 -.->|"Gemma strips<br/>clinical text"| RED["redacted view"]
+    RED --> FA
+    FA ==>|"outbound"| WORLD(["families · outside the district"])
+
+    classDef clin fill:#F5E5E0,stroke:#A03A22,color:#3a1710
+    classDef out fill:#1F5C3D,stroke:#123a26,color:#fff
+    class D3,CW clin
+    class WORLD out
+```
+
+Note the inversion, and say it out loud in any walkthrough:
+
+- **`casework-agent`** holds the most sensitive data and therefore gets the
+  **fewest tools** — it can read the case and write a draft, and nothing else.
+- **`family-agent`** reaches the outside world and therefore **never sees
+  clinical text at all**. The handoff fails closed if redaction did not run.
+
+---
+
+## The unattended loop
+
+Nobody triggers this. The fleet's job is to notice a deadline approaching on a
+Tuesday in October and act on it.
+
+```mermaid
+sequenceDiagram
+    participant S as Cloud Scheduler
+    participant J as Cloud Run Job
+    participant L as Idempotency ledger
+    participant C as clock-agent
+    participant A as Audit log
+
+    S->>J: hourly trigger
+    J->>J: run_key = tick-YYYYMMDDTHH
+    loop each open case
+        J->>C: recompute deadline
+        alt signature illegible
+            C-->>J: ClockCannotStart
+            J->>J: needs_intake++ (no dead letter)
+        else rung due
+            J->>L: claim(escalation:student:rung)
+            alt claim won
+                L-->>J: true
+                J->>A: write, deterministic id
+                J->>J: retire looser rungs
+            else already claimed
+                L-->>J: false
+                J->>J: suppressed++
+            end
+        end
+    end
+    J->>J: scale to zero
+```
+
+**Claim before the effect, never after.** A crash in between costs one missed
+notice that the coordinator sees in the dashboard. The reverse would spam a
+family on every tick for the life of the case. Those are not symmetric.
+
+---
+
+## The capability gate
+
+Agents gain capability through [Agent Skills](https://agentskills.io) — an open
+`SKILL.md` format originally released by Anthropic and read by roughly 45
+runtimes. Skills are portable across runtimes by design. Provenance is not.
+
+```mermaid
+flowchart LR
+    SRC["skill<br/><i>downloaded · imported<br/>· self-authored</i>"] --> P["parse &amp; hash"]
+    P --> ST["structural<br/><i>local, free</i>"]
+    ST --> TR["triage<br/><i>Gemma</i>"]
+    TR --> IT["intent<br/><i>gemini-3.5-flash</i>"]
+    IT --> IJ["injection<br/><i>Model Armor</i>"]
+    IJ --> SUP{"policy<br/><i>origin × verdict</i>"}
+
+    SUP -->|approve| SIGN["hash-pinned<br/>into Registry"]
+    SUP -->|quarantine| HUM(["human queue"])
+    SUP -->|reject| DROP(["refused"])
+    SIGN --> LOAD["Gateway permits load"]
+
+    ANY["any reviewer<br/>errored"] -.->|"downgrade,<br/>never approve"| SUP
+
+    classDef bad fill:#F5E5E0,stroke:#A03A22,color:#3a1710
+    classDef good fill:#E3EDE7,stroke:#1F5C3D,color:#12271c
+    class HUM,DROP,ANY bad
+    class SIGN,LOAD good
+```
+
+### Trust policy, and why it is inverted
+
+| Origin | safe | caution | dangerous |
+|---|---|---|---|
+| `builtin` | approve | approve | quarantine |
+| `trusted_repo` | approve | approve | reject |
+| `community` | approve | quarantine | reject |
+| `cross_runtime` | **quarantine** | reject | reject |
+| `agent_authored` | **quarantine** | reject | reject |
+
+Shipping runtimes do the opposite. Read from Hermes Agent's own
+`tools/skills_guard.py`, a **community** skill with any finding is blocked while
+the identical content written by the agent itself is allowed — `agent-created`
+maps to `(allow, allow, ask)`, and their comment notes the gate *"only runs when
+`skills.guard_agent_created` is enabled — off by default."*
+
+Their external scanning is genuinely good and this is a default rather than a
+flaw. But a community skill at least had a human author who could be named. A
+self-authored one may encode a web page the model read ten minutes earlier,
+reviewed by nobody.
+
+The table is **org-configurable data**, not a hardcoded literal, so a
+compromised publisher can be demoted at 3am without shipping a build.
+
+---
+
+## Failure handling
+
+Four layers, in order:
+
+1. **Schema validation** — a worker returning the wrong *shape* is caught
+   before anything downstream acts on it.
+2. **Bounded retry** — one reformulated attempt. The worker receives the
+   attempt number so it can tighten its own prompt rather than replaying the
+   call that just failed.
+3. **Circuit breaker** — an agent that fails repeatedly stops being called.
+4. **Dead letter** — unfinished work lands in a human queue, visibly.
+
+Transient failures (429, 503, timeouts) retry with **jittered** exponential
+backoff — jitter specifically because a catalogue sweep fires hundreds of calls
+and un-jittered backoff makes them all retry in lockstep, reproducing the burst
+that caused the rate limit.
+
+Permanent failures are classified **by type, not by message**. An earlier
+version substring-matched and retried `ArmorUnavailable` — which means "no
+template configured" — three times, because its class name contains
+"unavailable". Names are not error semantics.
+
+---
+
+## Deployment topology
+
+| Concern | Service | Note |
+|---|---|---|
+| Unattended execution | Cloud Run Job + Cloud Scheduler | hourly, scales to zero between ticks |
+| Case state, audit, idempotency ledger | Firestore | deterministic document ids |
+| Cross-session memory | Vertex AI Memory Bank | via ADK `VertexAiMemoryBankService` |
+| Reasoning traces | Cloud Trace | OTel spans, degrades to no-op locally |
+| Guardrails | Model Armor | regional; screens documents *and* `SKILL.md` |
+| Models | Vertex AI | `global` endpoint — see below |
+
+### Two location gotchas, both encoded in `deploy/day1.sh`
+
+- **Gemini 3.x and Gemma are served only from the `global` endpoint.** A
+  regional call 404s even though `models.list()` reports the model present in
+  that region. ADK builds its own client from `GOOGLE_CLOUD_LOCATION`, so that
+  variable *must* be the model location.
+- **Model Armor is genuinely regional** with no global endpoint, and only
+  answers on `modelarmor.<region>.rep.googleapis.com`. It carries
+  `MODEL_ARMOR_LOCATION` separately. Without the endpoint override, gcloud
+  reports `PERMISSION_DENIED` on a project you plainly have access to.
+
+---
+
+## Measured results
+
+| What | Result |
+|---|---|
+| Skill gate — benign corpus (36 real skills) | 36/36 approve, **zero findings** |
+| Skill gate — credential-exfil replica | REJECT, flagged by two reviewers independently |
+| Same replica, structural review only | **APPROVE** — which is why intent earns its model call |
+| Intake — legible consent dates | 12/12 exact |
+| Intake — illegible dates | 2/2 correctly unsure |
+| Tick idempotency, live on Cloud Run | 12 escalations → replay → still 12 audit rows |
+
+All data is synthetic. The jurisdiction rules table is illustrative and flagged
+as such in source; the federal 60-calendar-day baseline is well established,
+the state variants are stand-ins chosen to exercise all three counting rules.
