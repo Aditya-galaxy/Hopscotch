@@ -15,6 +15,7 @@ class Settings:
     project_id: str
     location: str
     armor_location: str
+    agent_engine_id: str
     firestore_db: str
     cases_collection: str
     deadletter_collection: str
@@ -37,6 +38,9 @@ class Settings:
             # Model Armor is genuinely regional and has no global endpoint, so
             # it carries its own setting rather than inheriting the above.
             armor_location=os.environ.get("MODEL_ARMOR_LOCATION", "us-central1"),
+            # Vertex AI Agent Engine instance that hosts Memory Bank and
+            # sessions. Created once by deploy/create_agent_engine.sh.
+            agent_engine_id=os.environ.get("AGENT_ENGINE_ID", ""),
             firestore_db=os.environ.get("FIRESTORE_DATABASE", "(default)"),
             cases_collection=os.environ.get("CASES_COLLECTION", "cases"),
             deadletter_collection=os.environ.get("DEADLETTER_COLLECTION", "deadletter"),

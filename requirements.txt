@@ -1,6 +1,9 @@
 # Pin these after the first successful install on day 1 -- `pip freeze` into
 # requirements.lock.txt and commit both.
 google-adk
+# Memory Bank and Agent Engine live here; google-adk does NOT pull it in,
+# and without it memory writes fail at runtime rather than at import.
+google-cloud-aiplatform
 google-genai
 google-cloud-firestore
 google-cloud-pubsub

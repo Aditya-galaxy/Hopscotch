@@ -102,6 +102,10 @@ def run_tick(
                                 run_key=run_key,
                                 due_on=comp.due_on.isoformat(),
                                 days_remaining=comp.days_remaining)
+                    # Firestore holds the fact; Memory Bank holds the narrative
+                    # a future session needs. Best-effort on purpose -- a
+                    # missing recollection must never fail a statutory check.
+                    _remember(case.student_ref, comp, rung)
                     counts["escalated"] += 1
                     # TODO(day-4): route to casework_agent through the supervisor
                 else:
@@ -119,6 +123,20 @@ def run_tick(
 
     log.info("tick %s complete: %s", run_key, counts)
     return counts
+
+
+def _remember(student_ref: str, comp: DeadlineComputation, rung: int) -> None:
+    try:
+        from ..memory import remember
+        remember(
+            student_ref,
+            f"Escalated at T-{rung}: evaluation due {comp.due_on.isoformat()} "
+            f"under {comp.rule_label}, {comp.days_remaining} days remaining. "
+            f"{comp.explanation}",
+            author="clock-agent",
+        )
+    except Exception as e:  # memory is an enhancement, never a dependency
+        log.info("memory write skipped for %s: %s", student_ref, e)
 
 
 def main() -> int:

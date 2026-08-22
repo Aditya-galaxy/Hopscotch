@@ -102,6 +102,11 @@ echo "    screens scanned documents AND SKILL.md content -- same boundary,"
 echo "    two subjects. Confidence low-and-above: a missed injection costs more"
 echo "    than a coordinator dismissing a false positive."
 
+say "5b/9 agent engine (hosts Memory Bank)"
+AGENT_ENGINE_ID="${AGENT_ENGINE_ID:-$(GOOGLE_CLOUD_PROJECT=$PROJECT_ID MODEL_ARMOR_LOCATION=$REGION \
+  ./deploy/create_agent_engine.sh | head -1 | cut -d= -f2 | awk '{print $1}')}"
+echo "    AGENT_ENGINE_ID=$AGENT_ENGINE_ID"
+
 say "6/9  runtime identity (least privilege)"
 # The job gets exactly two roles. Not Editor. The whole project is about
 # per-agent scoping -- starting with an over-permissioned runtime undercuts it.
@@ -135,7 +140,7 @@ say "7/9  deploy the job"
 gcloud run jobs deploy "$JOB" \
   --source . --region="$REGION" --project="$PROJECT_ID" \
   --service-account="$RUN_SA@$PROJECT_ID.iam.gserviceaccount.com" \
-  --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=global,MODEL_ARMOR_LOCATION=$REGION,MODEL_ARMOR_TEMPLATE=$ARMOR_TEMPLATE" \
+  --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=global,MODEL_ARMOR_LOCATION=$REGION,MODEL_ARMOR_TEMPLATE=$ARMOR_TEMPLATE,AGENT_ENGINE_ID=$AGENT_ENGINE_ID" \
   --max-retries=1 --task-timeout=10m --memory=512Mi
 
 say "8/9  schedule it (hourly)"

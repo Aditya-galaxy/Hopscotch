@@ -206,6 +206,37 @@ compromised publisher can be demoted at 3am without shipping a build.
 
 ---
 
+## Agent Registry: what is managed, what is substituted
+
+Google's managed **Agent Registry** is part of the Gemini Enterprise Agent
+Platform and requires organisation-level setup. Probed on this project and
+confirmed unavailable to a personal Cloud account — `deploy/probe.sh` reports
+it, and this is the fallback that script promises.
+
+`src/agentx/registry.py` implements the same three responsibilities against
+Firestore, enforcing exactly the scopes declared in `registry/*.agent.yaml`:
+
+| Responsibility | Implementation |
+|---|---|
+| **publish** | versioned cards keyed `name@version`, so a bump adds a row rather than overwriting — you can see what an agent used to be permitted to do |
+| **discover** | query by department or by scope; the entry point another department actually uses |
+| **authorize** | the gateway check; deny by default, and an unregistered agent holds no scopes at all |
+
+What *is* managed and running: **Vertex AI Agent Engine** (instance hosting
+Memory Bank), **Memory Bank** via `VertexAiMemoryBankService`, **Model Armor**,
+**Cloud Trace**, and the Cloud Run Job runtime.
+
+### The scope bug worth knowing about
+
+The first generation of these cards came out of a shell loop that collapsed
+`a,b,c` into a single YAML list item. Every agent published with exactly one
+scope named `case.read case.write worker.invoke`. It parsed cleanly, published
+successfully, and authorized nothing correctly. `tests/test_registry.py` now
+asserts no scope contains a space, and the tests run against the real cards so
+a malformed one breaks the build.
+
+---
+
 ## Failure handling
 
 Four layers, in order:

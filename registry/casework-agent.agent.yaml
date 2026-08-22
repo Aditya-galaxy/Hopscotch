@@ -1,5 +1,9 @@
-# Agent card published to Agent Registry. Versioned; a bump here is what makes
-# an agent discoverable to another department without a code change on their side.
+# Agent card published to Agent Registry.
+#
+# The version is load-bearing: a bump publishes a NEW row rather than
+# overwriting, so you can see what an agent used to be permitted to do. Scopes
+# here are the authority the gateway enforces -- an agent absent from the
+# registry holds no scopes at all.
 apiVersion: agentregistry/v1
 kind: Agent
 metadata:
@@ -12,18 +16,17 @@ metadata:
 spec:
   model: gemini-3.5-flash
   description: >-
-    See src/agentx/agents/ for the instruction and contract.
+    Drafts Prior Written Notice, evaluation plans, and meeting agendas. Holds the most sensitive data and therefore gets the fewest tools.
   identity:
     # Per-agent SPIFFE identity. Deliberately NOT a shared service account:
     # a shared account would make every scope below unenforceable.
     kind: AgentIdentity
     spiffe_id: spiffe://agentx/sped/casework-agent
   scopes:
-    - case.read_full draft.write
+    - case.read_full
+    - draft.write
   gateway:
-    # Every tool call routes through Agent Gateway, which authorizes against
-    # the identity above and the scopes declared here.
     policy: agentx-sped-policy
     deny_by_default: true
   guardrails:
-    model_armor_template: agentx-inbound
+    model_armor_template: agentx-skill-review
