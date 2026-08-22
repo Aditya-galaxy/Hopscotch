@@ -8,11 +8,18 @@ install:  ## create venv and install deps
 	$(PY) -m venv .venv && .venv/bin/pip install -q -r requirements.txt
 	@echo "run: source .venv/bin/activate"
 
-test:  ## run the deadline test suite (no cloud needed)
-	PYTHONPATH=src $(PY) -m pytest tests/ -q
+test:  ## run the full suite (no cloud credentials needed)
+	$(PY) -m pytest -q
 
 corpus:  ## generate the synthetic case corpus
 	PYTHONPATH=src $(PY) scripts/generate_corpus.py -n 40
+
+corpora:  ## fetch the benign skill corpus used as a false-positive control
+	./scripts/fetch_corpora.sh
+
+scan:  ## scan a skill folder: make scan SKILL=data/replicas/credential-helper
+	@test -n "$(SKILL)" || (echo "usage: make scan SKILL=<path> [ARGS=--structural-only]"; exit 1)
+	$(PY) -m agentx.skills.cli $(SKILL) $(ARGS)
 
 tick:  ## run one tick locally against Firestore
 	PYTHONPATH=src $(PY) -m agentx.jobs.tick

@@ -99,8 +99,28 @@ Meanwhile all 36 skills in the real benign corpus pass clean. A gate with false
 positives gets disabled by the people it was built to help.
 
 ```bash
-./scripts/fetch_corpora.sh
-python -m agentx.skills.cli data/corpora/mattpocock-skills --all --structural-only
+make corpora
+make scan SKILL=data/corpora/mattpocock-skills ARGS="--all --structural-only"
+```
+
+### Reviewing hostile text without being hostile-texted
+
+The intent reviewer feeds untrusted instructions to a model, which is the exact
+attack it exists to detect. Three mitigations, all tested:
+
+- **Nonce fencing.** Content sits between `--- BEGIN SKILL-<random> ---` markers
+  regenerated per call, so a skill cannot close the fence and escape the quotes.
+- **Schema-constrained output.** `response_schema` means a successful injection
+  still cannot produce free text — only findings in the declared shape.
+- **Fail closed.** Unparseable output raises rather than returning "clean", and
+  the gate downgrades any decision whose reviewers could not run.
+
+Runs against either backend. Local prototyping needs no billing account:
+
+```bash
+export GOOGLE_GENAI_USE_VERTEXAI=false
+export GEMINI_API_KEY=...        # free at https://aistudio.google.com/apikey
+make scan SKILL=data/replicas/credential-helper
 ```
 
 ## Idempotency
