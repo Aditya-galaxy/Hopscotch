@@ -1,0 +1,59 @@
+flowchart LR
+    subgraph TRIG["TRIGGERS"]
+        direction TB
+        SCH["Cloud Scheduler<br/>hourly"]
+        PS["Pub/Sub<br/>document arrival"]
+    end
+
+    JOB["Cloud Run Job<br/>agentx-tick<br/>scales to zero"]
+
+    subgraph GOV["GOVERNANCE PLANE"]
+        direction TB
+        GW["Agent Gateway<br/>deny by default"]
+        ID["Agent Identity<br/>SPIFFE, per agent"]
+        REG["Agent Registry<br/>versioned, dept-scoped"]
+        MA["Model Armor<br/>inline guardrail"]
+    end
+
+    subgraph FLEET["OPERATIONAL FLEET"]
+        direction TB
+        CO["coordinator<br/>gemini-3.5-pro"]
+        IN["intake-agent"]
+        CL["clock-agent"]
+        CW["casework-agent"]
+        FA["family-agent"]
+    end
+
+    subgraph GATE["CAPABILITY GATE"]
+        direction TB
+        RV["structural, triage,<br/>intent, injection"]
+    end
+
+    subgraph STATE["STATE and TELEMETRY"]
+        direction TB
+        FS[("Firestore<br/>cases, audit, effects")]
+        MB[("Memory Bank<br/>cross-session")]
+        CT["Cloud Trace<br/>OTel spans"]
+    end
+
+    SCH --> JOB
+    PS --> JOB
+    JOB --> CO
+    CO --> GW
+    ID --> GW
+    REG --> GW
+    GW --> FLEET
+    IN --> MA
+    MA --> RV
+    RV --> REG
+    FLEET --> FS
+    FA --> MB
+    CO --> CT
+    GW --> FS
+
+    classDef gov fill:#1F5C3D,stroke:#123a26,color:#ffffff
+    classDef fleet fill:#E3EDE7,stroke:#1F5C3D,color:#12271c
+    classDef store fill:#EEEDE7,stroke:#8a8f86,color:#12271c
+    class GW,ID,REG,MA gov
+    class CO,IN,CL,CW,FA,RV fleet
+    class FS,MB,CT,JOB store

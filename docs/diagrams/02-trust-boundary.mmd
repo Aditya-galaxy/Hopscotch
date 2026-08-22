@@ -1,0 +1,20 @@
+flowchart LR
+    subgraph sens["Data sensitivity"]
+        D1["directory<br/><i>name, school, grade</i>"]
+        D2["administrative<br/><i>dates, stage</i>"]
+        D3["clinical<br/><i>evaluation findings</i>"]
+    end
+
+    IN["intake-agent<br/><i>front office</i>"] --> D1
+    CL["clock-agent<br/><i>SPED admin</i>"] --> D2
+    CW["casework-agent<br/><i>school psychology</i>"] --> D3
+    FA["family-agent<br/><i>family liaison</i>"] --> D1
+
+    D3 -.->|"Gemma strips<br/>clinical text"| RED["redacted view"]
+    RED --> FA
+    FA ==>|"outbound"| WORLD(["families · outside the district"])
+
+    classDef clin fill:#F5E5E0,stroke:#A03A22,color:#3a1710
+    classDef out fill:#1F5C3D,stroke:#123a26,color:#fff
+    class D3,CW clin
+    class WORLD out

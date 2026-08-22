@@ -10,6 +10,9 @@ Three layers. The third is what most agent systems skip.
 
 ## System overview
 
+> Rendered PNGs for upload live in [`docs/diagrams/`](diagrams/). Regenerate
+> with `make diagrams` after editing any block below.
+
 ```mermaid
 flowchart TB
     subgraph trigger[" "]

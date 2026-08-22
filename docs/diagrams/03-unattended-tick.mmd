@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant S as Cloud Scheduler
+    participant J as Cloud Run Job
+    participant L as Idempotency ledger
+    participant C as clock-agent
+    participant A as Audit log
+
+    S->>J: hourly trigger
+    J->>J: run_key = tick-YYYYMMDDTHH
+    loop each open case
+        J->>C: recompute deadline
+        alt signature illegible
+            C-->>J: ClockCannotStart
+            J->>J: needs_intake++ (no dead letter)
+        else rung due
+            J->>L: claim(escalation:student:rung)
+            alt claim won
+                L-->>J: true
+                J->>A: write, deterministic id
+                J->>J: retire looser rungs
+            else already claimed
+                L-->>J: false
+                J->>J: suppressed++
+            end
+        end
+    end
+    J->>J: scale to zero

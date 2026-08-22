@@ -1,0 +1,19 @@
+flowchart LR
+    SRC["skill<br/><i>downloaded · imported<br/>· self-authored</i>"] --> P["parse &amp; hash"]
+    P --> ST["structural<br/><i>local, free</i>"]
+    ST --> TR["triage<br/><i>Gemma</i>"]
+    TR --> IT["intent<br/><i>gemini-3.5-flash</i>"]
+    IT --> IJ["injection<br/><i>Model Armor</i>"]
+    IJ --> SUP{"policy<br/><i>origin × verdict</i>"}
+
+    SUP -->|approve| SIGN["hash-pinned<br/>into Registry"]
+    SUP -->|quarantine| HUM(["human queue"])
+    SUP -->|reject| DROP(["refused"])
+    SIGN --> LOAD["Gateway permits load"]
+
+    ANY["any reviewer<br/>errored"] -.->|"downgrade,<br/>never approve"| SUP
+
+    classDef bad fill:#F5E5E0,stroke:#A03A22,color:#3a1710
+    classDef good fill:#E3EDE7,stroke:#1F5C3D,color:#12271c
+    class HUM,DROP,ANY bad
+    class SIGN,LOAD good

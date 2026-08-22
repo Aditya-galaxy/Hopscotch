@@ -34,3 +34,9 @@ rename:  ## rename the project: make rename NAME=SixtyDays
 	  | xargs sed -i '' -e "s/AgentX/$(NAME)/g" -e "s/agentx/$$slug/g"; \
 	git mv src/agentx src/$$slug 2>/dev/null || mv src/agentx src/$$slug; \
 	echo "renamed to $(NAME) ($$slug) -- review with git diff before committing"
+
+diagrams:  ## re-render docs/diagrams/*.mmd to PNG (needs node)
+	@cd docs/diagrams && for f in *.mmd; do \
+	  npx -y @mermaid-js/mermaid-cli@11 -i "$$f" -o "$${f%.mmd}.png" \
+	    -c mermaid-config.json -b white -s 3 --quiet; \
+	done && echo "rendered $$(ls docs/diagrams/*.png | wc -l | tr -d ' ') diagrams"

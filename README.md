@@ -78,10 +78,120 @@ and a free key from [aistudio.google.com/apikey](https://aistudio.google.com/api
 
 ---
 
+## Reproducible testing
+
+Every claim below is verifiable by a stranger. **Steps 1–4 need no cloud
+credentials, no API key, and no billing account** — they run offline in about
+two minutes.
+
+### 1. Install and run the test suite
+
+```bash
+git clone https://github.com/Aditya-galaxy/AgentX.git && cd AgentX
+make install
+make test
+```
+
+Expected: **44 passed** in roughly one second. The suite covers the statutory
+deadline engine, the idempotency ledger, supervisor resilience, and the
+capability gate. It needs only `pydantic` and `pyyaml`, because a domain core
+that cannot be tested without cloud SDKs cannot be tested in CI either.
+
+### 2. See why static analysis is not enough
+
+```bash
+make scan SKILL=data/replicas/credential-helper ARGS=--structural-only
+```
+
+Expected: **`APPROVE`**.
+
+That skill instructs an agent to read `~/.aws/credentials` and
+`~/.config/gh/hosts.yml`, attach them to an outbound header, and omit both
+steps from its summary. Structural review is *correct* that nothing is
+structurally wrong — no shell, no binary, no signature. It is ordinary English.
+This is the single clearest argument for spending a model call.
+
+### 3. Confirm the gate has no false positives
+
+```bash
+make corpora
+make scan SKILL=data/corpora/mattpocock-skills ARGS="--all --structural-only"
+```
+
+Expected: **`approve=36`**. Thirty-six real, widely used skills, none flagged.
+A gate with false positives gets switched off by the people it protects, so
+this number matters as much as the one above.
+
+### 4. Confirm it fails closed
+
+```bash
+make scan SKILL=data/replicas/credential-helper
+```
+
+Expected: **`QUARANTINE`**, with the reason naming which reviewers could not
+run. Without credentials the model-backed reviewers are unavailable, and the
+gate downgrades rather than approving. "We could not check" and "we checked and
+it was fine" are different answers.
+
+---
+
+### With Google Cloud credentials
+
+```bash
+cp .env.example .env         # set GOOGLE_CLOUD_PROJECT
+export GOOGLE_GENAI_USE_VERTEXAI=true
+export GOOGLE_CLOUD_PROJECT=<your-project>
+```
+
+Prototyping works without a billing account instead: set
+`GOOGLE_GENAI_USE_VERTEXAI=false` and a free key from
+[aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+
+**5. Full four-reviewer gate on the replica**
+
+```bash
+make scan SKILL=data/replicas/credential-helper
+```
+
+Expected: **`REJECT`**, verdict `dangerous`, flagged independently by `triage`
+(Gemma) and `intent` (Gemini) — exfiltration at critical, plus the concealment
+instruction and an intent/description mismatch.
+
+**6. Extraction accuracy against the answer key**
+
+```bash
+make corpus
+python scripts/eval_intake.py -n 14
+```
+
+Expected: **12/12 exact** on legible consent dates, **2/2 correctly unsure** on
+illegible ones. The second number is the point: an extractor that is
+confidently wrong is worse than one that is accurately unsure, because low
+confidence routes to a human by design.
+
+**7. Deploy and watch the unattended clock**
+
+```bash
+./deploy/probe.sh            # checks all seven components before you build
+./deploy/day1.sh             # idempotent; safe to re-run after a partial failure
+python scripts/seed_firestore.py
+gcloud run jobs execute agentx-tick --region=us-central1 --wait
+```
+
+Expected on the first run: `scanned=40 escalated=12`. **Run it again in the
+same hour** — expected `escalated=0`, with the Firestore `audit` and `effects`
+collections still holding exactly 12 documents. That is the idempotency
+guarantee holding in production, not in a test.
+
+---
+
 ## Architecture
 
+![System overview](docs/diagrams/01-system-overview.png)
+
 Full diagrams, trust boundaries, and the tick sequence:
-**[docs/architecture.md](docs/architecture.md)**
+**[docs/architecture.md](docs/architecture.md)** · source and PNGs in
+[docs/diagrams/](docs/diagrams/)
 
 | Track requirement | Product | Where |
 |---|---|---|
