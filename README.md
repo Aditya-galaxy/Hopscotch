@@ -47,6 +47,11 @@ finding, the gateway hands `family-agent` a *redacted projection*, it writes the
 parent letter, and Chirp speaks it. Two ADK agents, two privilege boundaries,
 one hourly job that nobody triggers.
 
+And once a day the supervisor writes the coordinator a brief — one headline,
+what needs a human today, what the fleet did overnight, what to watch. It reads
+the audit trail too, so a live run surfaced *"blocked unauthorized scope access
+attempts from rogue-agent and family-agent"* without being asked to.
+
 A person only sees what it could not clear.
 
 ---
@@ -210,8 +215,8 @@ Full diagrams, trust boundaries, and the tick sequence:
 | Observability | OTel → Cloud Trace | `src/agentx/telemetry.py` |
 | Infra | Scheduler · Cloud Run Jobs · Cloud Run · Firestore | `src/agentx/jobs/tick.py` |
 
-**Models.** `gemini-3.5-flash` for workers · `gemini-3.5-pro` in the supervisor
-for adjudication only · `gemma-4-26b-a4b-it-maas` for skill triage and clinical
+**Models.** `gemini-3.5-flash` for workers · `gemini-3.7-flash` in the supervisor —
+the newest model, for judgement calls · `gemma-4-26b-a4b-it-maas` for skill triage and clinical
 redaction · `veo-3.1-fast-generate-001` for one cached district explainer ·
 **Chirp3-HD** for spoken notices. **Framework:** Google ADK 2.7.1.
 

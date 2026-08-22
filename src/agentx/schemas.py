@@ -86,6 +86,26 @@ class Case(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class DailyBrief(BaseModel):
+    """What the coordinator reads before anything else.
+
+    Deliberately shaped rather than free prose. A brief that rambles gets
+    skimmed; a brief with a single headline and three short lists gets acted
+    on. `headline` is the one thing they would want to know if they read
+    nothing else.
+    """
+    brief_date: str
+    headline: str = Field(description="One sentence. The single most important thing.")
+    needs_you_today: list[str] = Field(
+        default_factory=list, description="Cases a human must touch today")
+    moved_overnight: list[str] = Field(
+        default_factory=list, description="What the fleet did while nobody watched")
+    watch: list[str] = Field(
+        default_factory=list, description="Not urgent yet, but heading that way")
+    cases_open: int = 0
+    generated_by: str = "coordinator"
+
+
 class WorkerResult(BaseModel):
     """Envelope every worker returns through. The supervisor reads this first."""
     agent: str

@@ -14,12 +14,12 @@ metadata:
     program: special-education
     compliance: idea-part-b
 spec:
-  model: gemini-3.5-pro
+  model: gemini-3.7-flash
   description: >-
-    Supervisor. Routes work, validates every worker return against its schema, retries once, circuit-breaks at three, dead-letters to a human queue.
+    Supervisor. Owns routing and the failure paths, and writes the
+    coordinator's daily brief. Runs on the newest model rather than the
+    largest: no pro-tier model at or above Gemini 3.5 is available here.
   identity:
-    # Per-agent SPIFFE identity. Deliberately NOT a shared service account:
-    # a shared account would make every scope below unenforceable.
     kind: AgentIdentity
     spiffe_id: spiffe://agentx/sped/coordinator
   scopes:

@@ -21,6 +21,7 @@ from ..config import PROJECT_SLUG
 from ..deadlines import (
     ClockCannotStart, pending_escalation, recompute, superseded_by,
 )
+from ..brief import brief_effect
 from ..pipeline import MAX_NOTICES_PER_TICK, PipelineFailed, draft_and_send
 from ..idempotency import Ledger, escalation_effect, run_key_for
 from ..schemas import DeadlineComputation, WorkerResult
@@ -148,6 +149,21 @@ def run_tick(
                         case.escalations_sent.append(retired)
 
             store.upsert_case(case)
+
+        # Once a day, the supervisor writes the coordinator's brief. Claimed
+        # through the same ledger as everything else, so the other 23 ticks are
+        # a no-op rather than 24 briefs.
+        if ledger.claim(brief_effect(today), kind="daily_brief", run_key=run_key):
+            try:
+                from ..brief import generate, save
+                brief = generate(today=today, store=store)
+                save(brief)
+                counts["brief"] = 1
+                log.info("brief for %s: %s", today.isoformat(), brief.headline)
+            except Exception as e:
+                counts["brief"] = 0
+                log.warning("brief generation failed for %s: %s: %s",
+                            today.isoformat(), type(e).__name__, str(e)[:200])
 
         for k, v in counts.items():
             s.set_attribute(k, v)

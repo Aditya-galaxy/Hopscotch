@@ -27,7 +27,7 @@ flowchart TB
     end
 
     subgraph L1["LAYER 1 · Operational fleet"]
-        CO["coordinator<br/><i>gemini-3.5-pro</i>"]
+        CO["coordinator<br/><i>gemini-3.7-flash</i>"]
         IN["intake-agent"]
         CL["clock-agent"]
         CW["casework-agent"]

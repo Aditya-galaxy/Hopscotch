@@ -8,10 +8,14 @@ from __future__ import annotations
 
 from google.adk.agents import LlmAgent
 
-from ..config import PRO
+from ..config import SUPERVISOR
+from ..schemas import DailyBrief
 
 INSTRUCTION = """\
-You supervise a fleet of special education compliance agents.
+You supervise a fleet of special education compliance agents. You have two
+jobs: adjudicating questionable worker output, and writing the coordinator's
+daily brief. Both are the same skill -- knowing what actually matters out of a
+hundred things that happened.
 
 You are called when a worker returned something structurally valid but
 questionable -- a deadline that moved unexpectedly, an extraction with low
@@ -26,6 +30,11 @@ process complaint and the student a year. Those are not symmetric.
 
 coordinator = LlmAgent(
     name="coordinator",
-    model=PRO,
+    model=SUPERVISOR,
     instruction=INSTRUCTION,
+    # Without an output_schema ADK returns prose, and the first live run came
+    # back as Markdown headings that failed to parse. The supervisor's only
+    # invoked path today is the daily brief -- adjudication is handled
+    # deterministically in supervisor/resilience.py -- so this is the shape.
+    output_schema=DailyBrief,
 )

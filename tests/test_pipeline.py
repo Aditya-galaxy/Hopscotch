@@ -114,3 +114,50 @@ def test_per_tick_cap_is_bounded():
     """Twelve simultaneous escalations would otherwise be ~48 model calls in
     one burst against a per-minute quota."""
     assert 1 <= MAX_NOTICES_PER_TICK <= 10
+
+
+# --- the daily brief ---------------------------------------------------------
+
+def test_brief_fires_once_per_day_not_once_per_tick():
+    """24 ticks a day must not mean 24 briefs."""
+    from datetime import date as _date
+
+    from agentx.brief import brief_effect
+    from agentx.idempotency import InMemoryLedger
+
+    ledger = InMemoryLedger()
+    day = _date(2026, 10, 25)
+    assert ledger.claim(brief_effect(day)) is True
+    assert ledger.claim(brief_effect(day)) is False
+    assert ledger.claim(brief_effect(_date(2026, 10, 26))) is True
+
+
+def test_caseload_lines_lead_with_urgency():
+    """The model gets the most urgent cases, because the list is truncated --
+    truncating an unsorted list hides exactly the cases that matter."""
+    from datetime import date as _date
+
+    from agentx.brief import MAX_CASES_IN_PROMPT, gather
+
+    class FakeStore:
+        def open_cases(self):
+            out = []
+            for i, days in enumerate([40, -5, 12, 2, 30]):
+                c = a_case(f"stu_{i:04d}")
+                c.deadline = recompute(c, today=_date(2026, 9, 1))
+                c.deadline.days_remaining = days
+                out.append(c)
+            return out
+
+    lines, _events, n = gather(store=FakeStore(), today=_date(2026, 9, 1))
+    assert n == 5
+    assert len(lines) <= MAX_CASES_IN_PROMPT
+    assert "OVERDUE" in lines[0], "most urgent case is not first"
+
+
+def test_missing_brief_is_absent_not_invented(monkeypatch):
+    """The dashboard shows an honest gap rather than a fabricated summary."""
+    import agentx.brief as brief_mod
+    monkeypatch.setattr(brief_mod, "latest", lambda: None)
+    from agentx.dashboard.app import _brief_html
+    assert "No brief yet" in _brief_html()

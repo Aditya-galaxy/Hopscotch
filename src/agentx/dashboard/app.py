@@ -55,6 +55,14 @@ tr:last-child td{border-bottom:0}
 video,audio{width:100%;border-radius:3px}
 .empty{color:var(--muted);font-size:.88rem;padding:14px;background:var(--surface);
 border:1px dashed var(--rule);border-radius:4px}
+.brief{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--accent);
+border-radius:4px;padding:16px 18px;margin-bottom:20px}
+.brief .hl{font-size:1.05rem;font-weight:600;margin-bottom:12px;line-height:1.4}
+.brief .grp{margin-top:12px}
+.brief .grp h4{margin:0 0 5px;font-size:.68rem;text-transform:uppercase;
+letter-spacing:.09em;color:var(--muted);font-weight:600}
+.brief ul{margin:0;padding-left:17px}.brief li{font-size:.88rem;color:var(--soft);margin-bottom:3px}
+.brief .by{margin-top:12px;font-size:.72rem;color:var(--muted)}
 """
 
 
@@ -106,6 +114,32 @@ def media(name: str):
     if not p.is_file() or MEDIA_DIR.resolve() not in p.parents:
         return HTMLResponse("not found", status_code=404)
     return FileResponse(p)
+
+
+def _brief_html() -> str:
+    """The brief, or an honest absence. Never a fabricated one."""
+    e = html.escape
+    try:
+        from ..brief import latest
+        b = latest()
+    except Exception:
+        b = None
+    if b is None:
+        return ('<div class=empty>No brief yet — the supervisor writes one on '
+                'the first tick of each day.</div>')
+
+    def grp(title: str, items: list[str]) -> str:
+        if not items:
+            return ""
+        lis = "".join(f"<li>{e(i)}</li>" for i in items)
+        return f"<div class=grp><h4>{e(title)}</h4><ul>{lis}</ul></div>"
+
+    return (f"<div class=brief><div class=hl>{e(b.headline)}</div>"
+            + grp("needs you today", b.needs_you_today)
+            + grp("moved overnight", b.moved_overnight)
+            + grp("watch", b.watch)
+            + f"<div class=by>{e(b.generated_by)} · {e(b.brief_date)} · "
+              f"{b.cases_open} open cases</div></div>")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -168,6 +202,7 @@ def index() -> str:
 <h1>Special education compliance</h1>
 <div class=sub>{date.today().isoformat()} · every row below was updated by an
 unattended agent, not a person{f" · <b>{e(case_err)}</b>" if case_err else ""}</div>
+{_brief_html()}
 <div class=tiles>
   <div class="tile {'hot' if overdue else ''}"><div class=n>{overdue}</div><div class=l>overdue</div></div>
   <div class="tile {'warn' if week else ''}"><div class=n>{week}</div><div class=l>due within 7d</div></div>

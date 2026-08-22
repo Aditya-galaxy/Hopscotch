@@ -45,7 +45,7 @@ A person only sees what it could not clear.
 
 Three layers.
 
-**The operational fleet** — five ADK agents. A supervisor on Gemini 3.5 Pro that
+**The operational fleet** — five ADK agents. A supervisor on Gemini 3.7 Flash that
 validates every worker return against a schema, retries once, circuit-breaks at
 three, and dead-letters to a human queue. Four workers on Gemini 3.5 Flash.
 
@@ -63,8 +63,8 @@ instructed never to recompute one. A hallucinated statutory date is a lawsuit.
 
 ## Technologies used
 
-**Models:** `gemini-3.5-flash` (workers, intent review) · `gemini-3.5-pro`
-(supervisor adjudication only) · `gemma-4-26b-a4b-it-maas` (skill triage,
+**Models:** `gemini-3.5-flash` (workers, intent review) · `gemini-3.7-flash`
+(supervisor: adjudication and the daily brief) · `gemma-4-26b-a4b-it-maas` (skill triage,
 clinical redaction) · `veo-3.1-fast-generate-001` (one cached explainer) ·
 **Chirp3-HD** (spoken notices)
 

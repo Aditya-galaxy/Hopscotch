@@ -1,0 +1,148 @@
+"""The morning brief.
+
+Everything else in this system is the fleet acting. This is the fleet
+*reporting* -- the difference between a dashboard a coordinator has to read and
+an assistant that tells them what happened.
+
+It runs once a day, claimed through the same idempotency ledger as everything
+else, and it is the only place the supervisor model is used for something other
+than adjudicating a failure. That is deliberate: summarising a caseload is
+exactly the judgement call worth paying Pro for, and it happens once per day
+rather than once per case.
+"""
+from __future__ import annotations
+
+from datetime import date
+
+from .config import PROJECT_SLUG
+from .idempotency import effect_id
+from .schemas import Case, DailyBrief
+from .telemetry import span
+
+MAX_CASES_IN_PROMPT = 25
+MAX_EVENTS_IN_PROMPT = 20
+
+
+def brief_effect(day: date) -> str:
+    """One brief per day, ever. A second tick in the same day is a no-op."""
+    return effect_id("daily_brief", day.isoformat())
+
+
+def _case_line(c: Case) -> str:
+    d = c.deadline
+    if d is None:
+        return f"{c.student_ref} ({c.school_code}): no clock — intake incomplete"
+    sent = ", ".join(f"T-{r}" for r in sorted(c.escalations_sent, reverse=True)) or "none"
+    state = "OVERDUE by" if d.days_remaining < 0 else "due in"
+    return (f"{c.student_ref} ({c.school_code}, {c.jurisdiction}): "
+            f"{state} {abs(d.days_remaining)}d on {d.due_on.isoformat()}; "
+            f"notices sent: {sent}")
+
+
+def gather(*, store=None, today: date | None = None) -> tuple[list[str], list[str], int]:
+    """Caseload lines and recent events, both bounded.
+
+    Sorted by urgency and truncated rather than summarised, because a brief
+    built from a summary of a summary loses the specifics a coordinator needs
+    to actually act.
+    """
+    from . import store as default_store
+    from .config import settings
+
+    store = store or default_store
+    today = today or date.today()
+
+    cases = list(store.open_cases())
+    cases.sort(key=lambda c: c.deadline.days_remaining if c.deadline else 9999)
+    lines = [_case_line(c) for c in cases[:MAX_CASES_IN_PROMPT]]
+
+    events: list[str] = []
+    try:
+        from google.cloud import firestore
+        db = firestore.Client(project=settings.project_id or None,
+                              database=settings.firestore_db)
+        rows = [d.to_dict() for d in
+                db.collection(settings.audit_collection).limit(200).stream()]
+        rows.sort(key=lambda r: r.get("at", ""), reverse=True)
+        for r in rows[:MAX_EVENTS_IN_PROMPT]:
+            events.append(
+                f"{(r.get('at') or '')[:16]} {r.get('event')} "
+                f"{r.get('student_ref') or r.get('agent') or ''} "
+                f"{r.get('rung') or r.get('scope') or ''}".strip())
+    except Exception:
+        pass  # a brief without event history is degraded, not broken
+
+    return lines, events, len(cases)
+
+
+PROMPT = """\
+Write today's brief for a special education compliance coordinator who has
+three hundred other things to do.
+
+Rules:
+- `headline` is one sentence. If they read nothing else, what do they need?
+- `needs_you_today` is only what a HUMAN must do. The fleet already sends
+  notices; do not list those. Overdue cases, failed notices, and incomplete
+  intake belong here.
+- `moved_overnight` is what the fleet did unattended. Be specific and brief.
+- `watch` is not urgent yet but will be within a week.
+- Use student references exactly as given. Never invent a case, a date, or a
+  number. If a list is empty, leave it empty — do not pad it.
+- No preamble, no encouragement, no restating the question.
+
+TODAY: {today}
+OPEN CASES: {n}
+
+CASELOAD (most urgent first):
+{cases}
+
+RECENT ACTIVITY:
+{events}
+"""
+
+
+def generate(*, today: date | None = None, store=None) -> DailyBrief:
+    """Compose the brief. Raises if the model is unreachable — the caller
+    treats a missing brief as a missing brief, not an empty one."""
+    from .adk_runner import run_structured
+    from .agents.coordinator import coordinator
+
+    today = today or date.today()
+    with span("brief.generate", day=today.isoformat()) as s:
+        cases, events, n_open = gather(store=store, today=today)
+        prompt = PROMPT.format(
+            today=today.isoformat(), n=n_open,
+            cases="\n".join(cases) or "(none)",
+            events="\n".join(events) or "(none recorded)")
+        brief = run_structured(coordinator, prompt, DailyBrief)
+        brief.brief_date = today.isoformat()
+        brief.cases_open = n_open
+        s.set_attribute("needs_you", len(brief.needs_you_today))
+        return brief
+
+
+def save(brief: DailyBrief) -> None:
+    from google.cloud import firestore
+
+    from .config import settings
+    db = firestore.Client(project=settings.project_id or None,
+                          database=settings.firestore_db)
+    db.collection("briefs").document(brief.brief_date).set(
+        brief.model_dump(mode="json"))
+
+
+def latest() -> DailyBrief | None:
+    """Most recent brief, for the dashboard. None rather than a fabricated one."""
+    from google.cloud import firestore
+
+    from .config import settings
+    try:
+        db = firestore.Client(project=settings.project_id or None,
+                              database=settings.firestore_db)
+        rows = [d.to_dict() for d in db.collection("briefs").limit(30).stream()]
+        if not rows:
+            return None
+        rows.sort(key=lambda r: r.get("brief_date", ""), reverse=True)
+        return DailyBrief.model_validate(rows[0])
+    except Exception:
+        return None

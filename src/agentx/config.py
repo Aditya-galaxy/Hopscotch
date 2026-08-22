@@ -5,8 +5,13 @@ from dataclasses import dataclass
 PROJECT_NAME = "AgentX"          # `make rename NAME=...` rewrites this tree
 PROJECT_SLUG = "agentx"
 
-FLASH = "gemini-3.5-flash"          # required: Gemini 3.5 or newer
-PRO = "gemini-3.5-pro"              # supervisor adjudication only -- cost control
+FLASH = "gemini-3.5-flash"          # workers
+# Supervisor tier. NOT a "pro" model: no pro-tier model at or above Gemini 3.5
+# is available in this project -- 2.5-pro and 3.1-pro-preview both respond but
+# are below the version floor this project targets. So the supervisor gets the
+# NEWEST model instead of the largest one, which is a real tier difference and
+# an honest one.
+SUPERVISOR = "gemini-3.7-flash"
 GEMMA = "gemma-4-26b-a4b-it-maas"   # triage + redaction; global endpoint only
 
 
