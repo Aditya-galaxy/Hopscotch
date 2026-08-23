@@ -104,8 +104,11 @@ convincing than anything you can say over it.
 ### 2:30 – 2:50 · The same trick, on the money side
 *Optional — cut this first if you are running long.*
 
-> Quick one, because it's the same idea. This session is eligible, licensed,
-> right provider, right units, real note. Every rule passes.
+> Quick one, because it's the same idea — and it's the half that pays for the
+> other half. Twenty-four sessions assessed, twelve would've been denied.
+>
+> This one's eligible, licensed, right provider, right units, real note. Every
+> rule passes.
 >
 > And it's still a denial — because the note describes a group session and the
 > IEP says individual. There's no rule for that. Same reason the skill scanner

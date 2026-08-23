@@ -343,6 +343,13 @@ for why that inverts what shipping runtimes do.
 
 ## Claim readiness — the first slice of the second half
 
+Running on the live dashboard right now, from 24 synthetic sessions:
+
+```
+sessions assessed  24     billable  14
+would be denied    12     under-billed  2
+```
+
 `src/hopscotch/claims.py` answers one question: **would this session survive an
 audit?** It reports; it never generates a claim. Over-claiming triggers
 recoupment, which is worse than the underclaiming this exists to fix.

@@ -22,6 +22,7 @@ from ..deadlines import (
     ClockCannotStart, pending_escalation, recompute, superseded_by,
 )
 from ..brief import brief_effect
+from ..claims import MAX_ASSESSMENTS_PER_TICK, assess_pending
 from ..pipeline import MAX_NOTICES_PER_TICK, PipelineFailed, draft_and_send
 from ..idempotency import Ledger, escalation_effect, run_key_for
 from ..schemas import DeadlineComputation, WorkerResult
@@ -53,7 +54,8 @@ def run_tick(
         ledger = FirestoreLedger()
 
     counts = {"scanned": 0, "escalated": 0, "suppressed": 0, "notices_sent": 0,
-              "needs_intake": 0, "dead_lettered": 0, "errors": 0}
+              "needs_intake": 0, "dead_lettered": 0, "errors": 0,
+              "claims_assessed": 0, "claims_billable": 0}
     drafted = 0
 
     with span("job.tick", day=today.isoformat(), run_key=run_key) as s:
@@ -149,6 +151,15 @@ def run_tick(
                         case.escalations_sent.append(retired)
 
             store.upsert_case(case)
+
+        # Claim readiness on any session logged since the last tick. Bounded
+        # for the same reason notices are: a model call per session, and a
+        # district logs hundreds a week.
+        try:
+            n, ok = assess_pending(store=store, limit=MAX_ASSESSMENTS_PER_TICK)
+            counts["claims_assessed"], counts["claims_billable"] = n, ok
+        except Exception as e:
+            log.warning("claim assessment skipped: %s: %s", type(e).__name__, str(e)[:160])
 
         # Once a day, the supervisor writes the coordinator's brief. Claimed
         # through the same ledger as everything else, so the other 23 ticks are

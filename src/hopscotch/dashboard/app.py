@@ -116,6 +116,41 @@ def media(name: str):
     return FileResponse(p)
 
 
+def _claims_html() -> str:
+    """The revenue half, on screen. Blocked claims first -- those are denials
+    waiting to happen; the under-billed count is money already left behind."""
+    e = html.escape
+    try:
+        from .. import store
+        c = store.readiness_summary()
+    except Exception:
+        return ""
+    if not c.get("assessed"):
+        return ""
+
+    rows = "".join(
+        f"<tr><td class='mono'>{e(str(b.get('student_ref') or ''))}</td>"
+        f"<td>{e(b.get('requirement',''))}</td>"
+        f"<td>{e((b.get('detail') or '')[:90])}</td></tr>"
+        for b in c["blocked"][:12]) or \
+        "<tr><td colspan=3 class='empty'>nothing blocked</td></tr>"
+
+    return (f"<h2>Medicaid claim readiness</h2>"
+            f"<div class=tiles style='margin-bottom:14px'>"
+            f"<div class=tile><div class=n>{c['assessed']}</div>"
+            f"<div class=l>sessions assessed</div></div>"
+            f"<div class=tile><div class=n>{c['billable']}</div>"
+            f"<div class=l>billable</div></div>"
+            f"<div class=\"tile {'hot' if c['blocked'] else ''}\">"
+            f"<div class=n>{len(c['blocked'])}</div>"
+            f"<div class=l>would be denied</div></div>"
+            f"<div class=\"tile {'warn' if c['underbilled_sessions'] else ''}\">"
+            f"<div class=n>{c['underbilled_sessions']}</div>"
+            f"<div class=l>under-billed</div></div></div>"
+            f"<div class=scroll><table><tr><th>student</th><th>requirement</th>"
+            f"<th>why</th></tr>{rows}</table></div>")
+
+
 def _brief_html() -> str:
     """The brief, or an honest absence. Never a fabricated one."""
     e = html.escape
@@ -216,6 +251,7 @@ unattended agent, not a person{f" · <b>{e(case_err)}</b>" if case_err else ""}<
 <div class=scroll><table><tr><th>agent</th><th>version</th><th>department</th><th>scopes</th></tr>{areg}</table></div>
 <h2>Audit trail</h2>
 <div class=scroll><table><tr><th>when</th><th>event</th><th>subject</th><th>detail</th></tr>{arows}</table></div>
+{_claims_html()}
 <h2>Family-facing media</h2>
 <div class=media>{video}{players or "<div class=empty>no audio generated yet</div>"}</div>
 </div>"""

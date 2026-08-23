@@ -212,3 +212,37 @@ def assess(
             student_ref=delivery.student_ref, goal_ref=delivery.goal_ref,
             service_date=delivery.service_date, billable=billable,
             checks=checks, reviewed_semantically=reviewed)
+
+
+# ---------------------------------------------------------------------------
+# Batch assessment, for the unattended tick
+# ---------------------------------------------------------------------------
+
+MAX_ASSESSMENTS_PER_TICK = 8
+
+
+def assess_pending(*, store=None, limit: int = MAX_ASSESSMENTS_PER_TICK) -> tuple[int, int]:
+    """Assess sessions logged since the last tick. Returns (assessed, billable).
+
+    Marking a session assessed is what makes this idempotent -- a replay finds
+    nothing pending rather than re-billing the same model call.
+    """
+    from . import store as default_store
+    store = store or default_store
+
+    pending = store.open_deliveries(limit=limit)
+    if not pending:
+        return 0, 0
+
+    assessed = billable = 0
+    with span("claims.assess_pending", pending=len(pending)):
+        for row in pending:
+            delivery = ServiceDelivery.model_validate(
+                {k: v for k, v in row.items() if k not in ("_id", "assessed", "iep")})
+            authorized = IEPService.model_validate(row["iep"])
+            r = assess(delivery, authorized,
+                       medicaid_eligible=bool(row.get("medicaid_eligible")))
+            store.save_readiness(r, delivery_id=row["_id"])
+            assessed += 1
+            billable += bool(r.billable)
+    return assessed, billable

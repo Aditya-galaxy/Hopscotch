@@ -75,6 +75,48 @@ def audit(event: str, *, effect_id: str, student_ref: str | None = None, **field
     )
 
 
+def deliveries_for(student_ref: str) -> list[dict]:
+    """Service sessions logged against a case."""
+    q = (_client().collection("deliveries")
+         .where(filter=firestore.FieldFilter("student_ref", "==", student_ref)))
+    return [d.to_dict() for d in q.stream()]
+
+
+def open_deliveries(limit: int = 200) -> list[dict]:
+    """Sessions not yet assessed for claim readiness."""
+    q = (_client().collection("deliveries")
+         .where(filter=firestore.FieldFilter("assessed", "==", False)).limit(limit))
+    return [d.to_dict() | {"_id": d.id} for d in q.stream()]
+
+
+def save_readiness(readiness, *, delivery_id: str) -> None:
+    """Record the verdict and mark the session assessed, so a replay is a no-op."""
+    db = _client()
+    db.collection("claim_readiness").document(delivery_id).set(
+        readiness.model_dump(mode="json"))
+    db.collection("deliveries").document(delivery_id).update({"assessed": True})
+
+
+def readiness_summary() -> dict:
+    """What the coordinator needs: billable, blocked, and money left behind."""
+    rows = [d.to_dict() for d in
+            _client().collection("claim_readiness").limit(500).stream()]
+    billable = sum(1 for r in rows if r.get("billable"))
+    blocked, unclaimed_units = [], 0
+    for r in rows:
+        for c in r.get("checks", []):
+            if c.get("passed"):
+                continue
+            if c.get("blocking"):
+                blocked.append({"student_ref": r.get("student_ref"),
+                                "requirement": c.get("requirement"),
+                                "detail": c.get("detail", "")})
+            elif "under-billed" in (c.get("detail") or ""):
+                unclaimed_units += 1
+    return {"assessed": len(rows), "billable": billable,
+            "blocked": blocked, "underbilled_sessions": unclaimed_units}
+
+
 def dead_letter(result: WorkerResult, *, student_ref: str, reason: str,
                 run_key: str) -> None:
     """Where work goes when the fleet cannot finish it. A human queue, not /dev/null."""
