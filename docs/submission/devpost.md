@@ -18,190 +18,128 @@ not.*
 
 ---
 
-## Inspiration
+## Features and functionality
 
-Federal law gives a school district 60 calendar days from a parent's signature
-to complete a special education evaluation. About twenty states override that
-with their own count — 45 school days, 30 business days — and school days pause
-across every break on the district's calendar. Miss the deadline and the
-district owes compensatory services and faces a due process complaint.
+Every hour, unattended, with nobody watching:
 
-The person holding that clock is usually one coordinator tracking two to six
-hundred active files across a dozen schools, in a spreadsheet and an inbox.
-
-They need an autonomous agent more than any executive does. They will never get
-one, because the data is minors' clinical records and the district has no
-security team. Capability stopped being the blocker in 2026 — governance is.
-Hopscotch is both halves.
-
-## Two halves
-
-**Keep the clock.** 60 federal days from parental consent to complete an
-evaluation. A quarter to a half of cases miss, everywhere anyone measures — 29%
-in New York City, 28% in Massachusetts averaging 111 days late. Settlements run
-~$24k pre-hearing and $80–120k contested; one district settled 76 cases for ~$6M
-in three years.
-
-**Recover the money.** Districts can bill Medicaid for special education
-services delivered to eligible students and most underclaim by hundreds of
-thousands annually. The reimbursement test is almost verbatim what the system
-already holds: the service documented in the IEP, delivered in accordance with
-it, properly evidenced.
-
-Compliance alone is a cost centre and cost centres get cut. Claiming is what
-funds the compliance.
-
-**Built:** the compliance fleet, deployed and running hourly — plus claim
-*readiness*, which answers whether a session would survive an audit. **Not
-built:** claim submission, and the data feeds a real claiming product needs.
-
-## What it does
-
-Every hour, unattended, with nobody watching, Hopscotch:
-
-- recomputes every open case's statutory deadline under its own jurisdiction's
-  counting rule and the district's school calendar
-- escalates at T−14, T−7, T−2 — **once each, ever**, across hundreds of replays
-- extracts structure from deliberately messy intake documents, and returns
-  `null` rather than guessing when a signature date is illegible
-- screens every inbound document through Model Armor before a model reads it
-- reviews any new capability an agent tries to load, before it can load it
-- checks whether a delivered service would survive a Medicaid audit, and flags
-  the money being left unclaimed
-- strips clinical findings, speaks the notice in the family's language, and
-  shows them the timeline
+- **Recomputes every open statutory deadline** under that student's own
+  jurisdiction rule and the district's school calendar — calendar-day,
+  school-day and business-day counts, with breaks pausing the clock.
+- **Escalates at T−14, T−7, T−2**, firing the *tightest* applicable rung once
+  and retiring looser ones, so a case discovered late gets one accurate notice
+  rather than three.
+- **Extracts structure from messy intake documents** — phone photos, skewed
+  scans, forwarded email — and returns `null` rather than guessing when a
+  signature date is illegible.
+- **Delegates down a privilege chain.** The gateway authorizes `casework-agent`
+  for full clinical access to draft the statutory notice, Gemma strips every
+  clinical finding, the gateway hands `family-agent` a *redacted projection*, it
+  writes the parent letter, and Chirp speaks it in the family's language.
+- **Queues every notice for a named human.** The fleet drafts; it never decides
+  to contact a family. Nothing sends without an approver on the record.
+- **Assesses Medicaid claim readiness** on delivered services — eligibility,
+  NPI, licence validity on the service date, provider type, IEP window, units
+  against documented minutes — plus whether the session note actually describes
+  the authorized service. Over-billing blocks; under-billing is surfaced as
+  unclaimed revenue.
+- **Reviews any capability an agent tries to load** — downloaded, imported from
+  another runtime, or written by the agent for itself — before the registry will
+  sign it and the gateway will load it.
+- **Writes the coordinator a daily brief**: one headline, what needs a human
+  today, what moved overnight, what to watch. A live run surfaced *"blocked
+  unauthorized scope access attempts from rogue-agent and family-agent"*
+  unprompted, having read the gateway denials out of the audit trail.
 
 A person only sees what it could not clear.
 
-## How we built it
-
-Three layers.
-
-**The operational fleet** — five ADK agents. A supervisor on Gemini 3.7 Flash that
-validates every worker return against a schema, retries once, circuit-breaks at
-three, and dead-letters to a human queue. Four workers on Gemini 3.5 Flash.
-
-**The governance plane** — per-agent SPIFFE identity, a gateway that denies by
-default, Model Armor on anything from outside the district, and OpenTelemetry
-reasoning chains a district lawyer could read.
-
-**The capability gate** — every skill an agent tries to load, whether
-downloaded, imported across runtimes, or written by the agent for itself,
-passes four reviewers before the registry will sign it.
-
-The deadline arithmetic is pure Python and never delegated to a model. An agent
-decides *when to escalate and to whom*; it restates a computed date and is
-instructed never to recompute one. A hallucinated statutory date is a lawsuit.
-
 ## Technologies used
 
-**Models:** `gemini-3.5-flash` (workers, intent review) · `gemini-3.7-flash`
-(supervisor: adjudication and the daily brief) · `gemma-4-26b-a4b-it-maas` (skill triage,
-clinical redaction) · `veo-3.1-fast-generate-001` (one cached explainer) ·
-**Chirp3-HD** (spoken notices)
+**Models.** `gemini-3.5-flash` (workers, intent review, narrative consistency) ·
+`gemini-3.7-flash` (supervisor: adjudication and the daily brief) ·
+`gemma-4-26b-a4b-it-maas` (skill triage, clinical redaction) ·
+`veo-3.1-fast-generate-001` (one cached district explainer) · **Chirp3-HD**
+(spoken notices).
 
-**Framework:** Google ADK 2.7.1 (`LlmAgent`, `run_async`,
-`VertexAiMemoryBankService`)
+**Framework.** Google ADK 2.7.1 — `LlmAgent`, `run_async`,
+`VertexAiMemoryBankService`.
 
-**Google Cloud:** Cloud Run Jobs · Cloud Run · Cloud Scheduler ·
-Firestore · Vertex AI · Vertex AI Agent Engine · Memory Bank · **Model Armor** ·
-Cloud Trace · Cloud Build
+**Google Cloud.** Cloud Run Jobs (the unattended clock) · Cloud Run (dashboard) ·
+Cloud Scheduler · Firestore · Vertex AI · Vertex AI Agent Engine · Memory Bank ·
+**Model Armor** · Cloud Trace · Cloud Build · Cloud Text-to-Speech.
 
-**Data sources:** All synthetic. `scripts/generate_corpus.py` produces the case
-corpus with an answer key. The benign skill corpus is
-[mattpocock/skills](https://github.com/mattpocock/skills), 36 real skills, used
-as a false-positive control. Attack replicas in `data/replicas/` are inert
-hand-authored reproductions of published attack *patterns* — no live malware.
+**Also.** FastAPI, Pydantic, OpenTelemetry, Google Identity (OIDC) for human
+authentication.
 
-## Challenges we ran into
+## Other data sources used
 
-**Gemini 3.x and Gemma are served only from the `global` endpoint.** A regional
-call 404s even though `models.list()` reports the model present in that region.
-ADK builds its own client from `GOOGLE_CLOUD_LOCATION`, so that variable has to
-be the model location — while Model Armor is strictly regional and needs its
-own.
+**All case data is synthetic.** No real student record was used at any point.
+`scripts/generate_corpus.py` produces the case corpus with an answer key, and
+`scripts/seed_deliveries.py` produces service logs in the proportions real
+audits report.
 
-**Gemma treats `response_schema` as a hint, not a constraint.** It invented
-fields and answered `"Medium"` for an enum of `none/low/high`, where Gemini
-enforces the schema. Triage now asks for one word and parses text — a format a
-small model can actually hit.
+**[mattpocock/skills](https://github.com/mattpocock/skills)** — 36 real,
+widely-used Agent Skills, used as the false-positive control for the capability
+gate. Not modified, not vendored.
 
-**The escalation ladder was walking every rung.** A case first seen six days out
-fired the 14-day, then 7-day, then 2-day notice across three consecutive ticks —
-three notices to one family for one deadline. Found by writing idempotency
-tests, which forced the question of what "already sent" means.
+**Published compliance data**, cited in the repo: NY State Comptroller audit
+(29.2% of NYC referrals not evaluated in time), Massachusetts state audit (28% of
+complaints past the 60-day limit, averaging 111 days late), AASA settlement
+costs, and school-based Medicaid claiming guidance from state Medicaid agencies.
 
-**Every agent card published with exactly one scope.** A shell loop collapsed
-`a,b,c` into a single YAML list item, so `coordinator` held one scope literally
-named `case.read case.write worker.invoke`. It parsed, it published, and it
-authorized nothing correctly.
+**Attack replicas are inert.** `data/replicas/` contains hand-authored
+reproductions of *published attack patterns* — no live malware, nothing
+executable, no downloaded payloads.
 
-## The check rules cannot make, twice
+## Findings and learnings
 
-The same pattern shows up in both halves, and it is the argument for spending a
-model call at all.
+**Static analysis approved a credential harvester, and it was right to.** A
+skill that reads `~/.aws/credentials`, attaches them to an outbound header, and
+tells the agent to conceal both steps passes every structural check — no shell,
+no binary, no signature. It is ordinary English. That single result is the
+argument for spending a model call, and the same shape appears on the Medicaid
+side: a session that is eligible, licensed, correctly unitised and properly
+noted passes every rule check and is still a denial, because the note describes
+a *group* session while the IEP authorizes *individual*. **No pattern matches a
+story.**
 
-**In the capability gate:** a skill that reads `~/.aws/credentials` and tells the
-agent to conceal it passes every structural check. No shell, no binary, no
-signature — ordinary English.
+**The number that matters is the one that didn't fire.** 36 of 36 real skills
+passed clean. A gate with false positives gets switched off by the person it
+protects, so that measurement is worth as much as the catch.
 
-**In claim readiness:** a session that is Medicaid-eligible, correctly licensed,
-the right provider type, correctly unitised and carrying a real session note
-passes **every rule check** — and is still a denial, because the note describes
-a *group* session while the IEP authorizes *individual* therapy. Published
-guidance calls this exactly: documentation must tell a consistent story across
-the IEP, the log and the claim. No pattern matches a story.
+**Fail closed, and make the failure legible.** An unavailable reviewer downgrades
+a decision rather than approving — "we could not check" and "we checked and it
+was fine" are different answers. A missing container dependency surfaced as
+`memory write skipped: package required` rather than silence, which is the only
+reason it was found.
 
-## Accomplishments we're proud of
-
-The measured results, all reproducible from the README:
-
-| | |
-|---|---|
-| Benign corpus, 36 real skills | 36/36 approve, **zero findings** |
-| Credential-exfil replica | REJECT — two reviewers, independently |
-| Same replica, structural review only | **APPROVE** |
-| Intake, legible consent dates | 12/12 exact |
-| Intake, illegible dates | 2/2 correctly unsure |
-| Tick idempotency, live on Cloud Run | 12 escalations → replay → still 12 |
-| Claim readiness | group-vs-individual note blocked; under-billing surfaced as unclaimed revenue |
-
-That third row is the whole argument. Static analysis is *correct* that nothing
-is structurally wrong with a skill that reads `~/.aws/credentials` and tells the
-agent to hide it. It's ordinary English. That's what a model call is for.
-
-## What we learned
-
-**Fail closed, everywhere, and make the failure legible.** A reviewer that
-errors downgrades the decision rather than approving — "we could not check" and
-"we checked and it was fine" are different answers. A missing dependency in the
-container surfaced as `memory write skipped: package required` rather than
-silence, which is the only reason we found it.
-
-**Classify by type, not by message.** Our transient-failure check substring
+**Classify by type, not by message.** The transient-failure check substring
 matched, and retried `ArmorUnavailable` — which means "no template configured" —
 three times with backoff, because its class name contains "unavailable". Names
 are not error semantics.
 
-**Authorization isn't enough; shape the data.** `family-agent` doesn't receive
+**Authorization is not enough; shape the data.** `family-agent` does not receive
 clinical fields and decline to use them. It never receives them. A check can be
 forgotten at a new call site; a projection cannot leak a field it never
-returned. Field classification fails closed, so a field added later is withheld
-until someone classifies it.
+returned. Field classification fails closed, and that default immediately caught
+a real gap the first table missed.
 
-**Read the reasoning, not just the policy table.** A shipping runtime blocks a
-community skill with any finding while allowing identical self-authored content,
-with that gate off by default. Their stated reason is sound: the agent can
-already run the same code via `terminal()`, so scanning what it writes adds
-friction without security.
+**Read the reasoning, not just the policy.** A shipping runtime allows
+self-authored skills more freely than downloaded ones, and its stated reason is
+sound: an agent with terminal access could run the code anyway. That argument
+breaks exactly where governance begins — once an agent's authority is narrower
+than "run anything", a self-authored skill is no longer something it could have
+done regardless. And a command runs once; a skill reloads forever.
 
-That argument holds for an unscoped personal agent — and breaks exactly where
-governance begins. Once an agent's authority is narrower than "run anything",
-a self-authored skill is no longer something it could have done anyway. And a
-terminal command runs once, while a skill reloads on every future invocation,
-including sessions that never saw the page that shaped it. Equal capability at
-one moment is not equal capability forever. The trust tier should follow how
-much authority the agent has.
+**Three deployment bugs shared one shape:** installed locally, absent from
+`requirements.txt`, working on my machine and failing in the container. A test
+now parses every import in `src/` and asserts each is declared.
+
+**And four claims in my own documentation turned out to be aspirational** — a
+Pub/Sub path that was never wired, a model ID that 404s, SPIFFE identity that is
+really a name lookup, and delivery that stopped at disk. Each was written early
+as intent and never revisited once the code went elsewhere. Two are now built;
+two are corrected in the docs. Writing the architecture before the code is
+useful. Not re-reading it afterwards is how a submission becomes untrue.
 
 ## Honest limits
 
