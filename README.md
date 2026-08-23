@@ -259,7 +259,7 @@ roadmap: **[docs/product-requirements.md](docs/product-requirements.md)** · sou
 | Track requirement | Product | Where |
 |---|---|---|
 | Agent Registry | Agent Registry | `registry/*.agent.yaml` |
-| Agent Runtime | Agent Engine Runtime | `src/hopscotch/agents/`, `adk_runner.py` |
+| Agent Runtime | **Agent Engine Runtime** — supervisor deployed and serving | `deploy/deploy_agent_engine.py` |
 | Memory Bank | `VertexAiMemoryBankService` | ADK 2.7.1 |
 | Agent Identity | registry-declared scopes (*not* attested — [see limits](docs/architecture.md#honest-limits)) | `registry/*.agent.yaml` → `spec.identity` |
 | Agent Gateway | Agent Gateway | `registry/*.agent.yaml` → `spec.gateway` |

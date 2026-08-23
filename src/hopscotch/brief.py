@@ -14,10 +14,14 @@ from __future__ import annotations
 
 from datetime import date
 
-from .config import PROJECT_SLUG
+import logging
+
+from .config import PROJECT_SLUG, settings
 from .idempotency import effect_id
 from .schemas import Case, DailyBrief
 from .telemetry import span
+
+log = logging.getLogger(PROJECT_SLUG)
 
 MAX_CASES_IN_PROMPT = 25
 MAX_EVENTS_IN_PROMPT = 20
@@ -101,6 +105,37 @@ RECENT ACTIVITY:
 """
 
 
+def _remote_brief(prompt: str) -> DailyBrief | None:
+    """Ask the supervisor deployed on Agent Engine Runtime.
+
+    Returns None when no runtime is configured, so the local ADK path stays the
+    default and nothing depends on a managed service being reachable.
+    """
+    import json
+    import os
+
+    engine_id = os.environ.get("AGENT_ENGINE_RUNTIME", "")
+    if not engine_id:
+        return None
+
+    import vertexai
+    from vertexai import agent_engines
+
+    vertexai.init(project=settings.project_id, location=settings.armor_location)
+    remote = agent_engines.get(
+        f"projects/{settings.project_id}/locations/{settings.armor_location}"
+        f"/reasoningEngines/{engine_id}")
+
+    text = ""
+    for ev in remote.stream_query(message=prompt, user_id="tick"):
+        if ev.get("error_code"):
+            raise RuntimeError(f"agent engine: {str(ev.get('error_message'))[:200]}")
+        for part in (ev.get("content") or {}).get("parts") or []:
+            text += part.get("text") or ""
+    raw = text.strip().removeprefix("```json").removeprefix("```").removesuffix("```")
+    return DailyBrief.model_validate(json.loads(raw))
+
+
 def generate(*, today: date | None = None, store=None) -> DailyBrief:
     """Compose the brief. Raises if the model is unreachable — the caller
     treats a missing brief as a missing brief, not an empty one."""
@@ -114,7 +149,17 @@ def generate(*, today: date | None = None, store=None) -> DailyBrief:
             today=today.isoformat(), n=n_open,
             cases="\n".join(cases) or "(none)",
             events="\n".join(events) or "(none recorded)")
-        brief = run_structured(coordinator, prompt, DailyBrief)
+        try:
+            brief = _remote_brief(prompt)
+            s.set_attribute("runtime", "agent_engine" if brief else "local")
+        except Exception as e:
+            log.warning("agent engine unavailable, running locally: %s: %s",
+                        type(e).__name__, str(e)[:160])
+            s.set_attribute("runtime", "local_fallback")
+            brief = None
+        if brief is None:
+            brief = run_structured(coordinator, prompt, DailyBrief)
+
         brief.brief_date = today.isoformat()
         brief.cases_open = n_open
         s.set_attribute("needs_you", len(brief.needs_you_today))

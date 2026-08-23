@@ -409,6 +409,46 @@ idempotency ledger and the fail-closed conventions already existed. A standalone
 claiming product would have to build all of it again, and a compliance product
 that never expands never recovers the cost.
 
+## Gemini Enterprise Agent Platform — what is genuinely used
+
+The Fleet track recommends GEAP. Stated precisely, because three of the seven
+components are substituted and it would be easy to blur that:
+
+| Component | Status |
+|---|---|
+| **Agent Runtime** | ✅ The supervisor is **deployed to Vertex AI Agent Engine** and serves the daily brief. The tick calls it; zero fallbacks in the last run. |
+| **Memory Bank** | ✅ `VertexAiMemoryBankService` on a real Agent Engine instance. Verified write and semantic recall. |
+| **Model Armor** | ✅ Real API and template. Catches injection at HIGH confidence, passes benign skill text. |
+| **Agent Observability** | ⚠️ OpenTelemetry spans → Cloud Trace. Meets the OTel-compliant requirement; not the branded product. |
+| **Agent Registry** | ❌ Substituted — Firestore, enforcing the scopes in `registry/*.agent.yaml`. |
+| **Agent Gateway** | ❌ Substituted — in-process policy enforcement. |
+| **Agent Identity** | ❌ Substituted — declared `spiffe_id`, resolved by name. |
+
+The three substitutions are not a preference. `geminienterprise.googleapis.com`
+and `agentgateway.googleapis.com` report **"not offered on this project"** — not
+disabled, *not offered*. They sit behind organisation-level Gemini Enterprise
+provisioning a personal Cloud account cannot reach, which `deploy/probe.sh`
+detects and reports.
+
+### Two runtimes, on purpose
+
+The fleet sweeps on **Cloud Run Jobs**: it wakes hourly, works, scales to zero.
+That is the right shape for a scheduled pass and costs nothing idle.
+
+The supervisor lives on **Agent Engine Runtime**: managed, always addressable,
+queried rather than swept. `min_instances=0`, so it is also free at rest.
+
+Deploying it surfaced three things worth recording. The managed container
+inherits nothing from your shell, so `GOOGLE_CLOUD_LOCATION=global` has to be
+passed as a deployment env var or every query 404s on a regional model endpoint —
+the third appearance of that same bug, and the first inside somebody else's
+container. `agent_engines.create()` ships the agent by cloudpickle, which
+serialises classes defined in `__main__` **by value** and imports everything
+else **by reference**, so an agent importing `hopscotch.schemas` needs the whole
+package present remotely; defining the agent in the deploy script makes it
+self-contained. And the managed runtime imports `vertexai` itself even when the
+agent does not.
+
 ## Honest limits
 
 This is a working demonstration, not a deployable product. The gap is worth
