@@ -7,6 +7,10 @@ guidance says so.
 Say **"Gemini 3.5 Flash, built on Google ADK"** out loud before 0:30. Judges are
 told not to have to hunt for it.
 
+**Naming.** The project is **Hopscotch**; the deployed job is `agentx-tick`.
+Mention it once in passing — renaming it would have created a new job with no
+execution history, and that history is the point.
+
 **Before you record**
 
 ```bash

@@ -3,6 +3,10 @@
 **An always-on agent fleet that runs a school district's special education
 compliance office — and the governance that makes a district allowed to run it.**
 
+*Hopscotch: a numbered sequence you move through in order, without skipping a
+square. Consent, evaluation, meeting, plan. Miss one and a child waits another
+year for help they were already owed.*
+
 Built for the All Things Agentic Hackathon · **Fortified Enterprise Fleet**.
 
 ---
@@ -325,10 +329,6 @@ Together the argument becomes *"we stop the lawsuits, and we find the money that
 pays for us."* Not built. Named here because it is where the architecture points.
 
 ## A note on names
-
-The project is **Hopscotch** — a numbered sequence you move through in order,
-without skipping a square, which is what a case does: consent, evaluation,
-meeting, plan.
 
 The deployed Google Cloud resources keep an earlier `agentx-*` prefix
 (`agentx-tick`, `agentx-dashboard`, `agentx-hourly`). That is deliberate. The

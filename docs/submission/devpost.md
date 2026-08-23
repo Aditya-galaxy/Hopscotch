@@ -1,5 +1,8 @@
 # Devpost submission text
 
+**Project:** Hopscotch — a numbered sequence you move through in order,
+without skipping a square, which is what a special education case does.
+
 **Category:** Fortified Enterprise Fleet
 **Project start date:** 22 August 2026 (matches first commit)
 **Google SDK used:** Google ADK 2.7.1
@@ -157,6 +160,10 @@ much authority the agent has.
 ## Honest limits
 
 Stated plainly because several read as implemented from the architecture alone.
+(One that is *not* a limit: the deployed Cloud Run resources are named
+`agentx-*` from an earlier name. Renaming them would have created new resources
+with no execution history, and the unbroken hourly record since 22 August is
+the evidence of unattended operation.)
 Agent identity is **registry-declared, not attested** — cards carry distinct
 `spiffe_id` values but authorization resolves agents by name, so what the
 gateway enforces is a scope table, not zero-trust. **Nothing is delivered**:

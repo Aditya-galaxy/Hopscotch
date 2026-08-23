@@ -1,5 +1,9 @@
 # Narration — talking points, not a teleprompter
 
+*Project: **Hopscotch**. The deployed Cloud Run job is still `agentx-tick` — say
+so in passing when it appears on screen; it reads as history rather than a
+mistake, and quietly proves it has been running a while.*
+
 **Don't read this word for word.** Read it twice, then close it and talk. If you
 sound like you're reading, judges hear a script; if you sound like you're
 showing a friend something you built, they lean in.
@@ -48,6 +52,9 @@ convincing than anything you can say over it.
 
 *`gcloud run jobs execute agentx-tick --region=us-central1 --wait`*
 
+> — the job's still called agentx, by the way. I renamed the project after this
+> thing had already been running for days and didn't want to lose the history.
+>
 > Forty-eight cases, twelve escalations. And each one gets handed down the
 > chain — casework writes the legal notice, Gemma pulls out every clinical
 > detail, and only then does the family agent get to write the letter home.

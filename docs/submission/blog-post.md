@@ -1,7 +1,7 @@
 # Static analysis approved a credential harvester, and it was right to
 
-*I built this for the All Things Agentic Hackathon. Everything below is
-reproducible from the repo.*
+*I built this for the All Things Agentic Hackathon. The project is called
+Hopscotch. Everything below is reproducible from the repo.*
 
 ---
 
