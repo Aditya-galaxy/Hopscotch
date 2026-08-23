@@ -5,8 +5,9 @@ skipping a square, which is what a special education case does.
 
 **In one line:** an agent fleet that keeps a school district inside the legal
 clock on special education evaluations, and recovers the Medicaid money that
-pays for it. *The compliance half is built and deployed; the claiming half is
-designed and not implemented.*
+pays for it. *The compliance half is built and deployed. Of the claiming half, claim
+**readiness** is built and tested; claim **submission** and its data feeds are
+not.*
 
 **Category:** Fortified Enterprise Fleet
 **Project start date:** 22 August 2026 (matches first commit)
@@ -48,7 +49,11 @@ already holds: the service documented in the IEP, delivered in accordance with
 it, properly evidenced.
 
 Compliance alone is a cost centre and cost centres get cut. Claiming is what
-funds the compliance. **Built for this submission: the first half.**
+funds the compliance.
+
+**Built:** the compliance fleet, deployed and running hourly — plus claim
+*readiness*, which answers whether a session would survive an audit. **Not
+built:** claim submission, and the data feeds a real claiming product needs.
 
 ## What it does
 
@@ -61,6 +66,8 @@ Every hour, unattended, with nobody watching, Hopscotch:
   `null` rather than guessing when a signature date is illegible
 - screens every inbound document through Model Armor before a model reads it
 - reviews any new capability an agent tries to load, before it can load it
+- checks whether a delivered service would survive a Medicaid audit, and flags
+  the money being left unclaimed
 - strips clinical findings, speaks the notice in the family's language, and
   shows them the timeline
 
@@ -129,6 +136,22 @@ tests, which forced the question of what "already sent" means.
 named `case.read case.write worker.invoke`. It parsed, it published, and it
 authorized nothing correctly.
 
+## The check rules cannot make, twice
+
+The same pattern shows up in both halves, and it is the argument for spending a
+model call at all.
+
+**In the capability gate:** a skill that reads `~/.aws/credentials` and tells the
+agent to conceal it passes every structural check. No shell, no binary, no
+signature — ordinary English.
+
+**In claim readiness:** a session that is Medicaid-eligible, correctly licensed,
+the right provider type, correctly unitised and carrying a real session note
+passes **every rule check** — and is still a denial, because the note describes
+a *group* session while the IEP authorizes *individual* therapy. Published
+guidance calls this exactly: documentation must tell a consistent story across
+the IEP, the log and the claim. No pattern matches a story.
+
 ## Accomplishments we're proud of
 
 The measured results, all reproducible from the README:
@@ -141,6 +164,7 @@ The measured results, all reproducible from the README:
 | Intake, legible consent dates | 12/12 exact |
 | Intake, illegible dates | 2/2 correctly unsure |
 | Tick idempotency, live on Cloud Run | 12 escalations → replay → still 12 |
+| Claim readiness | group-vs-individual note blocked; under-billing surfaced as unclaimed revenue |
 
 That third row is the whole argument. Static analysis is *correct* that nothing
 is structurally wrong with a skill that reads `~/.aws/credentials` and tells the

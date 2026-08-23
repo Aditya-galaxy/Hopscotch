@@ -151,7 +151,21 @@ approve=36
 
 ---
 
-## 2:40–3:10 · The boundaries hold
+## 2:30–2:50 · Claim readiness *(optional, cut first)*
+
+```bash
+PYTHONPATH=src python -c "
+from datetime import date
+from hopscotch.claims import assess
+from hopscotch.schemas import IEPService, ServiceDelivery
+# ... see README for the full snippet"
+```
+
+Show two lines only: the group-vs-individual block, and the under-billed flag.
+
+---
+
+## 2:50–3:10 · The boundaries hold
 
 ```bash
 PYTHONPATH=src python -c "

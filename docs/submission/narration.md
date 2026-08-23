@@ -38,10 +38,9 @@ convincing than anything you can say over it.
 > So that's what I built. The agents that do the work, and the guardrails that
 > make it okay to point them at real records. Gemini 3.5 Flash, Google ADK.
 >
-> The other half — and I haven't built this yet — is that districts can bill
-> Medicaid for these exact services, and most of them massively underclaim. Same
-> records, same kid. Compliance stops the lawsuits; the billing is what pays for
-> it.
+> The other half is that districts can bill Medicaid for these exact services,
+> and most of them massively underclaim. Same records, same kid. Compliance
+> stops the lawsuits; the billing is what pays for it.
 >
 > Oh and — this summary up top? I didn't write that. The supervisor wrote it
 > this morning. Nobody asked it to.
@@ -102,7 +101,22 @@ convincing than anything you can say over it.
 
 ---
 
-### 2:35 – 3:05 · The boundary
+### 2:30 – 2:50 · The same trick, on the money side
+*Optional — cut this first if you are running long.*
+
+> Quick one, because it's the same idea. This session is eligible, licensed,
+> right provider, right units, real note. Every rule passes.
+>
+> And it's still a denial — because the note describes a group session and the
+> IEP says individual. There's no rule for that. Same reason the skill scanner
+> needed a model.
+>
+> Other direction too: if they under-bill, it says so. That's money the district
+> just didn't claim.
+
+---
+
+### 2:50 – 3:05 · The boundary
 *Run the denial.*
 
 > Quick one — family agent asks for the clinical file.

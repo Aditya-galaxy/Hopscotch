@@ -324,22 +324,69 @@ a malformed one breaks the build.
 
 ---
 
-## The second half, and why it changes nothing here
+## The second half: claim readiness
 
-School-based Medicaid claiming is the revenue side of the same records:
-districts bill Medicaid for special education services delivered to eligible
-students, and most underclaim heavily. The reimbursement test is the documents
-this system already governs.
+School-based Medicaid claiming is the revenue side of the same records.
+Districts bill Medicaid for special education services delivered to eligible
+students and most underclaim heavily, so the question is not *what do we have*
+but *would this survive an audit*.
 
-It is **not implemented**. What matters architecturally is that it would not
-require redesign — the claiming module asks a different question of the same
-case records, behind the same gateway projections, writing to the same audit
-trail. `casework-agent` already reads the full clinical case; a claiming agent
-would sit beside it with its own scope and its own ceiling.
+`src/hopscotch/claims.py` answers exactly that, and nothing more. **It reports;
+it never generates a claim.** Over-claiming triggers recoupment, which is worse
+than the underclaiming it exists to fix.
 
-The missing pieces are domain and integration, not structure: service delivery
-evidence, Medicaid eligibility flags, provider qualification, state plan
-billable-service rules, and random-moment time study participation.
+Published guidance states the test consistently — *documentation must tell a
+consistent story across the IEP, the service log, and the claim* — and that
+splits the same way the capability gate does:
+
+```mermaid
+flowchart LR
+    D["session log<br/>+ IEP authorization"] --> R["rule checks<br/>free, deterministic"]
+    R --> N["narrative check<br/>gemini-3.5-flash"]
+    N --> V{"verdict"}
+    V -->|all pass| B["billable"]
+    V -->|over-billed, expired licence,<br/>wrong provider type,<br/>note discrepant| X["blocked, with the reason"]
+    V -->|under-billed| M["billable, flagged:<br/>revenue unclaimed"]
+    U["narrative check<br/>could not run"] -.->|"not billable —<br/>unchecked is not clean"| V
+
+    classDef bad fill:#F5E5E0,stroke:#A03A22,color:#3a1710
+    classDef good fill:#E3EDE7,stroke:#1F5C3D,color:#12271c
+    class X,U bad
+    class B,M good
+```
+
+| Layer | Checks |
+|---|---|
+| **Rules** | Medicaid eligibility · NPI present · licence valid *on the service date* · approved provider type · service date inside the IEP window · billed units against documented minutes · note present |
+| **Meaning** | Does the session note actually describe the service the IEP authorizes? |
+
+The second layer is the whole justification. A session that is eligible,
+correctly licensed, the right provider type, correctly unitised and carrying a
+real note passes **every rule** — and is still denied when the note describes a
+*group* session against an IEP authorizing *individual* therapy. There is no
+pattern for that.
+
+**Asymmetric on purpose:** over-billing blocks, under-billing only flags.
+Over-billing is recoupment; under-billing is the district's own money left on
+the table, and surfacing it is the point of the revenue half.
+
+**Fail closed, again:** a narrative check that cannot run leaves the session
+*not billable* rather than clean — the same rule the skill gate uses.
+
+Architecturally this changed nothing. The claiming module asks a different
+question of the same governed records, behind the same projections, writing to
+the same audit trail.
+
+### What claiming still needs
+
+| | |
+|---|---|
+| Service delivery evidence | at scale, from the systems providers actually log into |
+| Medicaid eligibility feeds | which students are enrolled |
+| Provider credentialing data | live licensure and NPI status |
+| State plan rules | billable service definitions, which vary far more than evaluation timelines |
+| Random-moment time study | participation is a reimbursement condition in most states |
+| Submission | there is no claim submission path, deliberately |
 
 ## Honest limits
 
