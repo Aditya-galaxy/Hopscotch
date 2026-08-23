@@ -1,7 +1,8 @@
 # Hopscotch
 
-**An always-on agent fleet that runs a school district's special education
-compliance office — and the governance that makes a district allowed to run it.**
+**An always-on agent fleet for a school district's special education office. It
+keeps the district inside the legal clock, and recovers the Medicaid money that
+pays for it.**
 
 *Hopscotch: a numbered sequence you move through in order, without skipping a
 square. Consent, evaluation, meeting, plan. Miss one and a child waits another
@@ -38,6 +39,32 @@ district has no security team.
 > attested. [Full limits](docs/architecture.md#honest-limits).
 
 ---
+
+## Two halves
+
+**Keep the clock.** Federal law gives a district 60 days from parental consent
+to complete an evaluation. Roughly a quarter to a half of cases miss, everywhere
+anyone measures — 29% in New York City, 28% in Massachusetts running an average
+of 111 days late. The bill arrives as due process complaints: ~$24k for a
+pre-hearing settlement, $80–120k contested. One district settled 76 cases for
+~$6M in three years.
+
+**Recover the money.** Districts can bill Medicaid for special education
+services delivered to eligible students, and most underclaim by hundreds of
+thousands a year. The reimbursement test is almost verbatim what this system
+already holds: *the service documented in the IEP, delivered in accordance with
+it, properly evidenced.* Same student, same records, second question.
+
+Compliance alone is a cost centre, and cost centres get cut. Claiming is what
+makes the district money, which is what pays for the compliance. The pitch is
+not *"please find budget"* — it is **"we stop the lawsuits, and we find the
+money that pays for us."**
+
+> **Built today: the first half.** The clock, the fleet, the governance, and the
+> capability gate are deployed and running. Claiming is designed for and not
+> implemented — see [where this goes](#where-this-goes). Notices are also
+> *generated but never delivered*; there is no send path. Full scope in
+> [honest limits](docs/architecture.md#honest-limits).
 
 ## What it actually does
 
@@ -315,18 +342,25 @@ for why that inverts what shipping runtimes do.
 
 ## Where this goes
 
-Compliance is a painkiller — it stops lawsuits, settlements and state findings.
-But painkillers are cost centres, and cost centres get cut.
+The second half — **school-based Medicaid claiming** — is designed for and not
+built. What it needs that does not exist yet:
 
-The revenue half is **school-based Medicaid claiming**: districts can bill
-Medicaid for special education services delivered to eligible students, and most
-underclaim by hundreds of thousands a year. The requirements are the records
-this system already governs — the service documented in the IEP, delivered in
-accordance with it, properly evidenced. Same student, same coordinator, second
-question.
+| | |
+|---|---|
+| Service delivery evidence | who provided what, when, against which IEP goal |
+| Medicaid eligibility flags | which students are enrolled |
+| Provider qualification | approved provider types, licensure |
+| State plan rules | billable service definitions, which vary far more than evaluation timelines do |
+| Random-moment time study | participation is a condition of reimbursement in most states |
 
-Together the argument becomes *"we stop the lawsuits, and we find the money that
-pays for us."* Not built. Named here because it is where the architecture points.
+None of that is a change to the architecture. The statutory clock, the
+identity-shaped projections, the audit trail and the capability gate all stay as
+they are — the claiming module asks a different question of the same governed
+records. The work is domain rules and integration, which is exactly the
+unglamorous 90% between a demonstration and a product.
+
+The step that would actually validate it: put it in front of a district
+compliance coordinator and watch which half they reach for first.
 
 ## A note on names
 

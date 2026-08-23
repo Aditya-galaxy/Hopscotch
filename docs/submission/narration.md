@@ -35,9 +35,13 @@ convincing than anything you can say over it.
 > going to get one — because that list is full of kids' medical records and the
 > district has zero security people.
 >
-> So that's what I built. Two halves: the agents that do the work, and the
-> guardrails that make it okay to point them at real records. Gemini 3.5 Flash,
-> Google ADK.
+> So that's what I built. The agents that do the work, and the guardrails that
+> make it okay to point them at real records. Gemini 3.5 Flash, Google ADK.
+>
+> The other half — and I haven't built this yet — is that districts can bill
+> Medicaid for these exact services, and most of them massively underclaim. Same
+> records, same kid. Compliance stops the lawsuits; the billing is what pays for
+> it.
 >
 > Oh and — this summary up top? I didn't write that. The supervisor wrote it
 > this morning. Nobody asked it to.

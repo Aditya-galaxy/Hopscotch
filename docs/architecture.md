@@ -324,6 +324,23 @@ a malformed one breaks the build.
 
 ---
 
+## The second half, and why it changes nothing here
+
+School-based Medicaid claiming is the revenue side of the same records:
+districts bill Medicaid for special education services delivered to eligible
+students, and most underclaim heavily. The reimbursement test is the documents
+this system already governs.
+
+It is **not implemented**. What matters architecturally is that it would not
+require redesign — the claiming module asks a different question of the same
+case records, behind the same gateway projections, writing to the same audit
+trail. `casework-agent` already reads the full clinical case; a claiming agent
+would sit beside it with its own scope and its own ceiling.
+
+The missing pieces are domain and integration, not structure: service delivery
+evidence, Medicaid eligibility flags, provider qualification, state plan
+billable-service rules, and random-moment time study participation.
+
 ## Honest limits
 
 This is a working demonstration, not a deployable product. The gap is worth

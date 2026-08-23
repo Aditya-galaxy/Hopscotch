@@ -1,7 +1,12 @@
 # Devpost submission text
 
-**Project:** Hopscotch — a numbered sequence you move through in order,
-without skipping a square, which is what a special education case does.
+**Project:** Hopscotch — a numbered sequence you move through in order, without
+skipping a square, which is what a special education case does.
+
+**In one line:** an agent fleet that keeps a school district inside the legal
+clock on special education evaluations, and recovers the Medicaid money that
+pays for it. *The compliance half is built and deployed; the claiming half is
+designed and not implemented.*
 
 **Category:** Fortified Enterprise Fleet
 **Project start date:** 22 August 2026 (matches first commit)
@@ -27,6 +32,23 @@ They need an autonomous agent more than any executive does. They will never get
 one, because the data is minors' clinical records and the district has no
 security team. Capability stopped being the blocker in 2026 — governance is.
 Hopscotch is both halves.
+
+## Two halves
+
+**Keep the clock.** 60 federal days from parental consent to complete an
+evaluation. A quarter to a half of cases miss, everywhere anyone measures — 29%
+in New York City, 28% in Massachusetts averaging 111 days late. Settlements run
+~$24k pre-hearing and $80–120k contested; one district settled 76 cases for ~$6M
+in three years.
+
+**Recover the money.** Districts can bill Medicaid for special education
+services delivered to eligible students and most underclaim by hundreds of
+thousands annually. The reimbursement test is almost verbatim what the system
+already holds: the service documented in the IEP, delivered in accordance with
+it, properly evidenced.
+
+Compliance alone is a cost centre and cost centres get cut. Claiming is what
+funds the compliance. **Built for this submission: the first half.**
 
 ## What it does
 
