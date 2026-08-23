@@ -21,7 +21,7 @@ flowchart TB
 
     subgraph L2["LAYER 2 · Governance plane"]
         GW["Agent Gateway<br/><i>deny by default</i>"]
-        ID["Agent Identity<br/><i>SPIFFE, per agent</i>"]
+        ID["Agent Identity<br/><i>declared, not attested</i>"]
         MA["Model Armor<br/><i>inline guardrail</i>"]
         REG["Agent Registry<br/><i>versioned, dept-scoped</i>"]
     end
@@ -321,6 +321,45 @@ scope named `case.read case.write worker.invoke`. It parsed cleanly, published
 successfully, and authorized nothing correctly. `tests/test_registry.py` now
 asserts no scope contains a space, and the tests run against the real cards so
 a malformed one breaks the build.
+
+---
+
+## Honest limits
+
+This is a working demonstration, not a deployable product. The gap is worth
+stating precisely, because several of these read as implemented from the
+diagrams alone.
+
+**Identity is declared, not attested.** Cards carry `spiffe_id` values and every
+agent has a distinct one, but `registry.authorize()` resolves an agent by
+**name**. Nothing verifies a cryptographic identity. What the gateway actually
+enforces is a scope table keyed on a string — real enforcement, real deny-by-
+default, and genuinely not zero-trust. Wiring Agent Identity properly would
+replace the name lookup with an attested principal; the scope model and the
+projection above would not change.
+
+**Nothing is delivered.** `notify.send` is a declared scope with no
+implementation. The pipeline drafts the statutory notice, redacts it, writes the
+parent letter, and renders audio to disk. No email, SMS, or portal delivery
+exists, and no family receives anything.
+
+**Documents are not ingested in production.** `intake-agent` runs from
+`scripts/eval_intake.py`, where its accuracy is measured. In the deployed loop,
+cases arrive by seeding Firestore.
+
+**The state rules are invented.** `ST_ALPHA`, `ST_BRAVO` and `ST_CHARLIE` are
+stand-ins chosen to exercise all three counting rules. The federal
+60-calendar-day baseline is the only accurate one. Real state regulation is
+considerably messier.
+
+**And the unglamorous rest:** no user login, no multi-tenancy, no SIS
+integration, no real district calendar, no FERPA review, no data processing
+agreement. Tested against 48 synthetic cases, not 600 real ones.
+
+What *is* real: it runs unattended on Google Cloud, the deadline arithmetic is
+correct and tested, the gate's numbers are measured against real corpora, and
+the projection genuinely withholds clinical fields rather than asking an agent
+not to look.
 
 ---
 

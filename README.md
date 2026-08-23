@@ -27,6 +27,12 @@ district has no security team.
 
 **AgentX is both halves.**
 
+> **Scope of this build.** It runs unattended on Google Cloud and the results
+> below are measured, but it is a demonstration rather than a deployable
+> product: all data is synthetic, notices are *generated but never delivered*,
+> and agent identity is registry-declared rather than cryptographically
+> attested. [Full limits](docs/architecture.md#honest-limits).
+
 ---
 
 ## What it actually does
@@ -209,7 +215,7 @@ Full diagrams, trust boundaries, and the tick sequence:
 | Agent Registry | Agent Registry | `registry/*.agent.yaml` |
 | Agent Runtime | Agent Engine Runtime | `src/agentx/agents/`, `adk_runner.py` |
 | Memory Bank | `VertexAiMemoryBankService` | ADK 2.7.1 |
-| Agent Identity | Agent Identity (SPIFFE) | `registry/*.agent.yaml` → `spec.identity` |
+| Agent Identity | registry-declared scopes (*not* attested — [see limits](docs/architecture.md#honest-limits)) | `registry/*.agent.yaml` → `spec.identity` |
 | Agent Gateway | Agent Gateway | `registry/*.agent.yaml` → `spec.gateway` |
 | Model Armor | Model Armor | `src/agentx/armor.py` |
 | Observability | OTel → Cloud Trace | `src/agentx/telemetry.py` |

@@ -20,6 +20,10 @@ spec:
     coordinator's daily brief. Runs on the newest model rather than the
     largest: no pro-tier model at or above Gemini 3.5 is available here.
   identity:
+    # Declared, NOT attested. The gateway resolves this agent by name and
+    # enforces the scopes below; nothing verifies a cryptographic identity.
+    # Wiring managed Agent Identity would replace the name lookup with an
+    # attested principal and leave the scope model unchanged.
     kind: AgentIdentity
     spiffe_id: spiffe://agentx/sped/coordinator
   scopes:

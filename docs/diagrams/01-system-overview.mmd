@@ -9,7 +9,7 @@ flowchart LR
     subgraph GOV["GOVERNANCE PLANE"]
         direction TB
         GW["Agent Gateway<br/>deny by default"]
-        ID["Agent Identity<br/>SPIFFE, per agent"]
+        ID["Agent Identity<br/>declared, not attested"]
         REG["Agent Registry<br/>versioned, dept-scoped"]
         MA["Model Armor<br/>inline guardrail"]
     end

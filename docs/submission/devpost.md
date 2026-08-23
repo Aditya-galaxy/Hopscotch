@@ -154,6 +154,24 @@ including sessions that never saw the page that shaped it. Equal capability at
 one moment is not equal capability forever. The trust tier should follow how
 much authority the agent has.
 
+## Honest limits
+
+Stated plainly because several read as implemented from the architecture alone.
+Agent identity is **registry-declared, not attested** — cards carry distinct
+`spiffe_id` values but authorization resolves agents by name, so what the
+gateway enforces is a scope table, not zero-trust. **Nothing is delivered**:
+`notify.send` is a declared scope with no implementation, so notices are drafted,
+redacted, and voiced to disk but never sent. Documents are not ingested in
+production — `intake-agent` runs from the eval harness where its accuracy is
+measured. The three state rules are invented stand-ins; only the federal 60-day
+baseline is accurate. And there is no user login, multi-tenancy, SIS
+integration, FERPA review, or DPA.
+
+What is real: it runs unattended on Google Cloud, the deadline arithmetic is
+correct and tested, the gate's numbers are measured against real corpora, and
+the projection genuinely withholds clinical fields rather than asking an agent
+not to look at them.
+
 ## What's next
 
 Wire the gate into a live runtime's skill-load path rather than reviewing a
