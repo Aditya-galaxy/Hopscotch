@@ -141,7 +141,6 @@ def run_tick(
                                 reason="escalation recorded but notice not generated",
                                 run_key=run_key)
                             counts["dead_lettered"] += 1
-                    # TODO(day-4): route to casework_agent through the supervisor
                 else:
                     counts["suppressed"] += 1
                 # Firing a tight rung retires every looser one, so a late

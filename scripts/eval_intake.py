@@ -16,10 +16,8 @@ import json
 from datetime import date
 from pathlib import Path
 
-from hopscotch.adk_runner import AgentRunFailed, run_structured
-from hopscotch.agents.intake import intake_agent
-from hopscotch.guardrails import screen_inbound
-from hopscotch.schemas import ConsentEvent
+from hopscotch.adk_runner import AgentRunFailed
+from hopscotch.agents.intake import screened_extract
 
 LOW_CONFIDENCE = 0.7
 
@@ -46,15 +44,12 @@ def main() -> None:
         n_illegible += is_illegible
         n_legible += not is_illegible
 
-        if not args.no_screen:
-            screened = screen_inbound(text, source=f"consent:{row['student_ref']}")
-            if not screened.allowed:
-                blocked += 1
-                print(f"  {i:2}/{len(rows)} BLOCKED  {row['student_ref']} {screened.findings}")
-                continue
-
         try:
-            out = run_structured(intake_agent, text, ConsentEvent)
+            out = screened_extract(text, source=f"consent:{row['student_ref']}")
+        except PermissionError as e:
+            blocked += 1
+            print(f"  {i:2}/{len(rows)} BLOCKED  {row['student_ref']}: {str(e)[:60]}")
+            continue
         except AgentRunFailed as e:
             failed += 1
             n_legible_failed += not is_illegible

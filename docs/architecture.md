@@ -388,6 +388,27 @@ the same audit trail.
 | Random-moment time study | participation is a reimbursement condition in most states |
 | Submission | there is no claim submission path, deliberately |
 
+## Why both halves, structurally
+
+Counted by source lines, the system is not mostly compliance:
+
+| | |
+|---|---|
+| Compliance half — clock, jurisdictions, pipeline, tick, brief, agents | 973 |
+| Medicaid half — claim readiness | 248 |
+| **Shared governance — gateway, registry, identity, armor, guardrails, idempotency, memory, resilience, telemetry, capability gate** | **1,900** |
+| Coordinator dashboard | 257 |
+
+The largest investment serves neither half exclusively. That is the argument for
+building both rather than picking one: the expensive part — proving an agent can
+be trusted near a student record — is paid once and amortised across every
+question you then ask of those records.
+
+Claim readiness is 248 lines *because* the gateway, the audit trail, the
+idempotency ledger and the fail-closed conventions already existed. A standalone
+claiming product would have to build all of it again, and a compliance product
+that never expands never recovers the cost.
+
 ## Honest limits
 
 This is a working demonstration, not a deployable product. The gap is worth

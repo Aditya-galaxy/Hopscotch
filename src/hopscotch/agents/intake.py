@@ -38,12 +38,18 @@ intake_agent = LlmAgent(
 )
 
 
-def screened_extract(document_text: str, *, source: str) -> dict:
-    """Guardrail boundary. Nothing reaches the model unscreened."""
+def screened_extract(document_text: str, *, source: str) -> ConsentEvent:
+    """The only way in. Screen, then extract.
+
+    Callers do not get to skip the guardrail: a caller that screens separately
+    can forget to, and this document arrived from outside the district. Model
+    Armor rejects prompt injection hidden in a scanned form before any model
+    reads it.
+    """
     result = screen_inbound(document_text, source=source)
     if not result.allowed:
         raise PermissionError(
-            f"Model Armor blocked {source}: {', '.join(result.findings)}"
-        )
-    # TODO(day-2): invoke intake_agent via the ADK runner on result.sanitized
-    raise NotImplementedError("Wire the ADK runner on day 2")
+            f"Model Armor blocked {source}: {', '.join(result.findings)}")
+
+    from ..adk_runner import run_structured
+    return run_structured(intake_agent, result.sanitized, ConsentEvent)

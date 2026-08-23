@@ -56,7 +56,12 @@ already holds: *the service documented in the IEP, delivered in accordance with
 it, properly evidenced.* Same student, same records, second question.
 
 Compliance alone is a cost centre, and cost centres get cut. Claiming is what
-makes the district money, which is what pays for the compliance. The pitch is
+makes the district money, which is what pays for the compliance.
+
+It is also cheap to add once the hard part exists. By source lines the system is
+973 compliance, 248 claiming, and **1,900 of shared governance** — the expensive
+part is proving an agent can be trusted near a student record, and it is paid
+once for every question you then ask of those records. The pitch is
 not *"please find budget"* — it is **"we stop the lawsuits, and we find the
 money that pays for us."**
 
