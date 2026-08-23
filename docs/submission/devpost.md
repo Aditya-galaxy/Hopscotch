@@ -3,7 +3,7 @@
 **Category:** Fortified Enterprise Fleet
 **Project start date:** 22 August 2026 (matches first commit)
 **Google SDK used:** Google ADK 2.7.1
-**Repository:** https://github.com/Aditya-galaxy/AgentX
+**Repository:** https://github.com/Aditya-galaxy/Hopscotch
 **Hosted project:** https://agentx-dashboard-761390104675.us-central1.run.app
 (public, read-only, all data synthetic — no credentials needed)
 
@@ -23,11 +23,11 @@ hundred active files across a dozen schools, in a spreadsheet and an inbox.
 They need an autonomous agent more than any executive does. They will never get
 one, because the data is minors' clinical records and the district has no
 security team. Capability stopped being the blocker in 2026 — governance is.
-AgentX is both halves.
+Hopscotch is both halves.
 
 ## What it does
 
-Every hour, unattended, with nobody watching, AgentX:
+Every hour, unattended, with nobody watching, Hopscotch:
 
 - recomputes every open case's statutory deadline under its own jurisdiction's
   counting rule and the district's school calendar

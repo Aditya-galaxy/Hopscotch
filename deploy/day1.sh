@@ -7,7 +7,7 @@
 # is the one artifact nobody who starts on the 25th can produce.
 set -euo pipefail
 
-PROJECT_ID="${PROJECT_ID:?set PROJECT_ID (e.g. agentx-hack-0821)}"
+PROJECT_ID="${PROJECT_ID:?set PROJECT_ID (e.g. hopscotch-hack-0821)}"
 BILLING_ACCOUNT="${BILLING_ACCOUNT:?set BILLING_ACCOUNT (gcloud billing accounts list)}"
 REGION="${REGION:-us-central1}"
 JOB="agentx-tick"
@@ -62,10 +62,10 @@ if [ -z "$BUDGET_AMOUNT" ]; then
   esac
 fi
 if gcloud billing budgets list --billing-account="$BILLING_ACCOUNT" \
-     --format='value(displayName)' 2>/dev/null | grep -qx "agentx"; then
+     --format='value(displayName)' 2>/dev/null | grep -qx "hopscotch"; then
   echo "    exists"
 elif gcloud billing budgets create \
-      --billing-account="$BILLING_ACCOUNT" --display-name="agentx" \
+      --billing-account="$BILLING_ACCOUNT" --display-name="hopscotch" \
       --budget-amount="$BUDGET_AMOUNT" \
       --threshold-rule=percent=0.5 --threshold-rule=percent=0.9 \
       --filter-projects="projects/$PROJECT_ID" >/dev/null 2>&1; then
@@ -112,7 +112,7 @@ say "6/9  runtime identity (least privilege)"
 # per-agent scoping -- starting with an over-permissioned runtime undercuts it.
 if ! have "gcloud iam service-accounts describe $RUN_SA@$PROJECT_ID.iam.gserviceaccount.com --project=$PROJECT_ID"; then
   gcloud iam service-accounts create "$RUN_SA" \
-    --display-name="AgentX tick runtime" --project="$PROJECT_ID"
+    --display-name="Hopscotch tick runtime" --project="$PROJECT_ID"
 fi
 for role in roles/datastore.user roles/cloudtrace.agent \
             roles/aiplatform.user roles/modelarmor.user; do
@@ -141,7 +141,7 @@ say "7/9  deploy the job"
 # command. One image, two entrypoints -- see the Dockerfile.
 gcloud run jobs deploy "$JOB" \
   --source . --region="$REGION" --project="$PROJECT_ID" \
-  --command python --args="-m,agentx.jobs.tick" \
+  --command python --args="-m,hopscotch.jobs.tick" \
   --service-account="$RUN_SA@$PROJECT_ID.iam.gserviceaccount.com" \
   --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_LOCATION=global,MODEL_ARMOR_LOCATION=$REGION,MODEL_ARMOR_TEMPLATE=$ARMOR_TEMPLATE,AGENT_ENGINE_ID=$AGENT_ENGINE_ID" \
   --max-retries=1 --task-timeout=10m --memory=512Mi
@@ -152,7 +152,7 @@ say "8/9  schedule it (hourly)"
 # of 10. Trace density is what makes the "weeks of async operation" claim land.
 if ! have "gcloud iam service-accounts describe $SCHED_SA@$PROJECT_ID.iam.gserviceaccount.com --project=$PROJECT_ID"; then
   gcloud iam service-accounts create "$SCHED_SA" \
-    --display-name="AgentX scheduler" --project="$PROJECT_ID"
+    --display-name="Hopscotch scheduler" --project="$PROJECT_ID"
 fi
 # IAM is eventually consistent: a service account created a second ago is not
 # yet visible to the binding API, which reports "does not exist" rather than

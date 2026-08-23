@@ -10,9 +10,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from agentx.skills import Decision, parse_skill, review
-from agentx.skills.model import Category, Severity, Verdict
-from agentx.skills.reviewers import (
+from hopscotch.skills import Decision, parse_skill, review
+from hopscotch.skills.model import Category, Severity, Verdict
+from hopscotch.skills.reviewers import (
     MAX_BODY_CHARS, IntentReviewer, _IntentFinding, _IntentResponse,
 )
 

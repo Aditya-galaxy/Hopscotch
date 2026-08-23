@@ -6,7 +6,7 @@ scopes -- which is exactly what happened once and is why the first test exists.
 """
 import pytest
 
-from agentx.registry import AgentCard, ScopeDenied, authorize, load_cards
+from hopscotch.registry import AgentCard, ScopeDenied, authorize, load_cards
 
 CARDS = load_cards()
 BY_NAME = {c.name: c for c in CARDS}

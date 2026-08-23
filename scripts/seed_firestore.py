@@ -16,9 +16,9 @@ import random
 from datetime import date, timedelta
 from pathlib import Path
 
-from agentx import store
-from agentx.deadlines import recompute
-from agentx.schemas import Case, CaseStage, ConsentEvent
+from hopscotch import store
+from hopscotch.deadlines import recompute
+from hopscotch.schemas import Case, CaseStage, ConsentEvent
 
 # days-until-deadline band -> share of the corpus
 BANDS = [((-3, 1), 0.10),    # already overdue or due today: the loud cases

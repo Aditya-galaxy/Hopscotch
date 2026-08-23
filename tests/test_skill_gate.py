@@ -12,11 +12,11 @@ from pathlib import Path
 
 import pytest
 
-from agentx.skills import Decision, Origin, TrustPolicy, parse_skill, review
-from agentx.skills.gate import worst
-from agentx.skills.model import Verdict
-from agentx.skills.parse import split_frontmatter
-from agentx.skills.reviewers import StructuralReviewer
+from hopscotch.skills import Decision, Origin, TrustPolicy, parse_skill, review
+from hopscotch.skills.gate import worst
+from hopscotch.skills.model import Verdict
+from hopscotch.skills.parse import split_frontmatter
+from hopscotch.skills.reviewers import StructuralReviewer
 
 STRUCTURAL_ONLY = [StructuralReviewer()]
 CORPUS = Path("data/corpora/mattpocock-skills")

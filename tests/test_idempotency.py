@@ -9,11 +9,11 @@ from datetime import date, datetime, timezone
 
 import pytest
 
-from agentx.idempotency import (
+from hopscotch.idempotency import (
     InMemoryLedger, deadletter_effect, escalation_effect, run_key_for,
 )
-from agentx.jobs.tick import run_tick
-from agentx.schemas import Case, CaseStage, ConsentEvent
+from hopscotch.jobs.tick import run_tick
+from hopscotch.schemas import Case, CaseStage, ConsentEvent
 
 
 class FakeStore:
@@ -176,9 +176,9 @@ def test_permanent_failures_are_not_retried():
     "no template configured" -- was retried three times because its class name
     contains "unavailable".
     """
-    from agentx.armor import ArmorUnavailable
-    from agentx.genai import CredentialsMissing
-    from agentx.supervisor.resilience import is_transient
+    from hopscotch.armor import ArmorUnavailable
+    from hopscotch.genai import CredentialsMissing
+    from hopscotch.supervisor.resilience import is_transient
 
     for e in (ArmorUnavailable("no template"), CredentialsMissing("no key"),
               NotImplementedError("not wired"), ValueError("bad shape")):
@@ -186,7 +186,7 @@ def test_permanent_failures_are_not_retried():
 
 
 def test_rate_limits_are_retried():
-    from agentx.supervisor.resilience import is_transient
+    from hopscotch.supervisor.resilience import is_transient
 
     class ClientError(Exception):
         pass
@@ -197,7 +197,7 @@ def test_rate_limits_are_retried():
 
 
 def test_backoff_retries_then_succeeds():
-    from agentx.supervisor.resilience import with_backoff
+    from hopscotch.supervisor.resilience import with_backoff
 
     slept: list[float] = []
     calls = {"n": 0}
@@ -215,7 +215,7 @@ def test_backoff_retries_then_succeeds():
 
 
 def test_backoff_gives_up_and_reraises():
-    from agentx.supervisor.resilience import with_backoff
+    from hopscotch.supervisor.resilience import with_backoff
 
     def always():
         raise RuntimeError("429 RESOURCE_EXHAUSTED")
@@ -234,7 +234,7 @@ def test_illegible_date_does_not_start_the_clock():
     failing -- and a statutory clock started from a guessed date is worse than
     one a human is asked to confirm.
     """
-    from agentx.deadlines import ClockCannotStart, recompute
+    from hopscotch.deadlines import ClockCannotStart, recompute
 
     case = a_case()
     case.consent.consent_signed_on = None

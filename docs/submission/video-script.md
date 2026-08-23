@@ -11,7 +11,7 @@ told not to have to hunt for it.
 
 ```bash
 # one terminal, large font, dark theme, nothing else on screen
-cd ~/Agent/agentx && clear
+cd ~/Agent/hopscotch && clear
 export GOOGLE_CLOUD_PROJECT=kronagent
 ```
 
@@ -34,7 +34,7 @@ Have open in tabs, pre-loaded, so nothing spins during the take:
 > any executive does — and they'll never get one, because the data is minors'
 > clinical records and the district has no security team.
 >
-> AgentX is both halves. Gemini 3.5 Flash on Google ADK.
+> Hopscotch is both halves. Gemini 3.5 Flash on Google ADK.
 
 **On screen:** the dashboard. `7 overdue · 8 due within 7 days · 46 open cases`.
 Let it sit. The tiles do the work.
@@ -49,7 +49,7 @@ Let it sit. The tiles do the work.
 
 ```bash
 PYTHONPATH=src python -c "
-from agentx.registry import discover
+from hopscotch.registry import discover
 for a in discover(scope='case.read_dates'):
     print(a['name'], 'v'+a['version'], '—', a['department'], a['scopes'])"
 ```
@@ -151,8 +151,8 @@ approve=36
 
 ```bash
 PYTHONPATH=src python -c "
-from agentx.gateway import Gateway
-from agentx.registry import ScopeDenied
+from hopscotch.gateway import Gateway
+from hopscotch.registry import ScopeDenied
 gw = Gateway()
 try: gw.check('family-agent','case.read_full')
 except ScopeDenied as e: print('DENIED:', e)"

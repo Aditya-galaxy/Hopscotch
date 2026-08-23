@@ -4,7 +4,7 @@
     {
       "name": "dashboard",
       "runtimeExecutable": ".venv/bin/uvicorn",
-      "runtimeArgs": ["agentx.dashboard.app:app", "--port", "8080", "--app-dir", "src"],
+      "runtimeArgs": ["hopscotch.dashboard.app:app", "--port", "8080", "--app-dir", "src"],
       "port": 8080
     }
   ]

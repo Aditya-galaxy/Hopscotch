@@ -8,9 +8,9 @@ from datetime import date
 
 import pytest
 
-from agentx.gateway import Gateway, max_sensitivity, project
-from agentx.registry import ScopeDenied, load_cards
-from agentx.schemas import Case, CaseStage, ConsentEvent, Sensitivity
+from hopscotch.gateway import Gateway, max_sensitivity, project
+from hopscotch.registry import ScopeDenied, load_cards
+from hopscotch.schemas import Case, CaseStage, ConsentEvent, Sensitivity
 
 CARDS = load_cards()
 BY_NAME = {c.name: c for c in CARDS}
@@ -86,7 +86,7 @@ def test_unclassified_fields_fail_closed():
     The alternative -- unlisted means public -- means every future schema
     change is a potential leak that nobody reviews.
     """
-    from agentx.gateway import FIELD_SENSITIVITY, _RANK
+    from hopscotch.gateway import FIELD_SENSITIVITY, _RANK
     case = a_case()
     for field in case.model_dump(mode="json"):
         tier = FIELD_SENSITIVITY.get(field, Sensitivity.CLINICAL)

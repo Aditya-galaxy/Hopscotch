@@ -2,8 +2,8 @@
 import os
 from dataclasses import dataclass
 
-PROJECT_NAME = "AgentX"          # `make rename NAME=...` rewrites this tree
-PROJECT_SLUG = "agentx"
+PROJECT_NAME = "Hopscotch"          # `make rename NAME=...` rewrites this tree
+PROJECT_SLUG = "hopscotch"
 
 FLASH = "gemini-3.5-flash"          # workers
 # Supervisor tier. NOT a "pro" model: no pro-tier model at or above Gemini 3.5

@@ -29,7 +29,7 @@ if [ -n "$existing" ]; then
 fi
 
 op="$(curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d "{\"displayName\":\"${NAME}\",\"description\":\"AgentX cross-session memory\"}" "$API")"
+  -d "{\"displayName\":\"${NAME}\",\"description\":\"Hopscotch cross-session memory\"}" "$API")"
 id="$(printf '%s' "$op" | python3 -c "
 import json,sys
 print(json.load(sys.stdin)['name'].split('/reasoningEngines/')[1].split('/')[0])

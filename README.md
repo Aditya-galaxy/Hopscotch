@@ -1,4 +1,4 @@
-# AgentX
+# Hopscotch
 
 **An always-on agent fleet that runs a school district's special education
 compliance office — and the governance that makes a district allowed to run it.**
@@ -25,7 +25,7 @@ That coordinator needs an autonomous agent more than any executive does. They
 will never get one, because the data is minors' clinical records and the
 district has no security team.
 
-**AgentX is both halves.**
+**Hopscotch is both halves.**
 
 > **Scope of this build.** It runs unattended on Google Cloud and the results
 > below are measured, but it is a demonstration rather than a deployable
@@ -104,7 +104,7 @@ two minutes.
 ### 1. Install and run the test suite
 
 ```bash
-git clone https://github.com/Aditya-galaxy/AgentX.git && cd AgentX
+git clone https://github.com/Aditya-galaxy/Hopscotch.git && cd Hopscotch
 make install
 make test
 ```
@@ -213,13 +213,13 @@ Full diagrams, trust boundaries, and the tick sequence:
 | Track requirement | Product | Where |
 |---|---|---|
 | Agent Registry | Agent Registry | `registry/*.agent.yaml` |
-| Agent Runtime | Agent Engine Runtime | `src/agentx/agents/`, `adk_runner.py` |
+| Agent Runtime | Agent Engine Runtime | `src/hopscotch/agents/`, `adk_runner.py` |
 | Memory Bank | `VertexAiMemoryBankService` | ADK 2.7.1 |
 | Agent Identity | registry-declared scopes (*not* attested — [see limits](docs/architecture.md#honest-limits)) | `registry/*.agent.yaml` → `spec.identity` |
 | Agent Gateway | Agent Gateway | `registry/*.agent.yaml` → `spec.gateway` |
-| Model Armor | Model Armor | `src/agentx/armor.py` |
-| Observability | OTel → Cloud Trace | `src/agentx/telemetry.py` |
-| Infra | Scheduler · Cloud Run Jobs · Cloud Run · Firestore | `src/agentx/jobs/tick.py` |
+| Model Armor | Model Armor | `src/hopscotch/armor.py` |
+| Observability | OTel → Cloud Trace | `src/hopscotch/telemetry.py` |
+| Infra | Scheduler · Cloud Run Jobs · Cloud Run · Firestore | `src/hopscotch/jobs/tick.py` |
 
 **Models.** `gemini-3.5-flash` for workers · `gemini-3.7-flash` in the supervisor —
 the newest model, for judgement calls · `gemma-4-26b-a4b-it-maas` for skill triage and clinical
@@ -324,13 +324,25 @@ question.
 Together the argument becomes *"we stop the lawsuits, and we find the money that
 pays for us."* Not built. Named here because it is where the architecture points.
 
+## A note on names
+
+The project is **Hopscotch** — a numbered sequence you move through in order,
+without skipping a square, which is what a case does: consent, evaluation,
+meeting, plan.
+
+The deployed Google Cloud resources keep an earlier `agentx-*` prefix
+(`agentx-tick`, `agentx-dashboard`, `agentx-hourly`). That is deliberate. The
+Cloud Run job has been running hourly since 22 August, and renaming it would
+create a *new* job with no execution history — and that unbroken history is the
+evidence that this runs unattended. A tidy name is worth less than the traces.
+
 ## Disclosures
 
 **All data is synthetic.** No real student record was used.
 `scripts/generate_corpus.py` produces the corpus and ships an answer key.
 
 **The jurisdiction table is illustrative.** The federal 60-calendar-day baseline
-is well established; the state variants in `src/agentx/jurisdictions.py` are
+is well established; the state variants in `src/hopscotch/jurisdictions.py` are
 simplified stand-ins chosen to exercise all three counting rules. Verify against
 current state regulation before this touches a real case. This system assists a
 coordinator. It does not replace one and it does not give legal advice.

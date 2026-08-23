@@ -16,10 +16,10 @@ import json
 from datetime import date
 from pathlib import Path
 
-from agentx.adk_runner import AgentRunFailed, run_structured
-from agentx.agents.intake import intake_agent
-from agentx.guardrails import screen_inbound
-from agentx.schemas import ConsentEvent
+from hopscotch.adk_runner import AgentRunFailed, run_structured
+from hopscotch.agents.intake import intake_agent
+from hopscotch.guardrails import screen_inbound
+from hopscotch.schemas import ConsentEvent
 
 LOW_CONFIDENCE = 0.7
 

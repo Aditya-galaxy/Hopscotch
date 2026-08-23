@@ -19,10 +19,10 @@ corpora:  ## fetch the benign skill corpus used as a false-positive control
 
 scan:  ## scan a skill folder: make scan SKILL=data/replicas/credential-helper
 	@test -n "$(SKILL)" || (echo "usage: make scan SKILL=<path> [ARGS=--structural-only]"; exit 1)
-	$(PY) -m agentx.skills.cli $(SKILL) $(ARGS)
+	$(PY) -m hopscotch.skills.cli $(SKILL) $(ARGS)
 
 tick:  ## run one tick locally against Firestore
-	PYTHONPATH=src $(PY) -m agentx.jobs.tick
+	PYTHONPATH=src $(PY) -m hopscotch.jobs.tick
 
 probe:  ## day-1 provisioning probe
 	./deploy/probe.sh
@@ -30,9 +30,9 @@ probe:  ## day-1 provisioning probe
 rename:  ## rename the project: make rename NAME=SixtyDays
 	@test -n "$(NAME)" || (echo "usage: make rename NAME=YourName"; exit 1)
 	@slug=$$(echo "$(NAME)" | tr '[:upper:]' '[:lower:]'); \
-	grep -rl -e agentx -e AgentX . --exclude-dir=.git --exclude-dir=.venv \
-	  | xargs sed -i '' -e "s/AgentX/$(NAME)/g" -e "s/agentx/$$slug/g"; \
-	git mv src/agentx src/$$slug 2>/dev/null || mv src/agentx src/$$slug; \
+	grep -rl -e hopscotch -e Hopscotch . --exclude-dir=.git --exclude-dir=.venv \
+	  | xargs sed -i '' -e "s/Hopscotch/$(NAME)/g" -e "s/hopscotch/$$slug/g"; \
+	git mv src/hopscotch src/$$slug 2>/dev/null || mv src/hopscotch src/$$slug; \
 	echo "renamed to $(NAME) ($$slug) -- review with git diff before committing"
 
 diagrams:  ## re-render docs/diagrams/*.mmd to PNG (needs node)

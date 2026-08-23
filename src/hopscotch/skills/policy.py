@@ -17,7 +17,7 @@ by a human who could be identified. A self-authored skill was written by a
 model that may have read a hostile web page ten minutes earlier, and nobody
 reviewed it at all.
 
-AgentX inverts it: AGENT_AUTHORED is the STRICTEST tier, not the loosest. And
+Hopscotch inverts it: AGENT_AUTHORED is the STRICTEST tier, not the loosest. And
 the table is org-configurable data rather than a hardcoded Python literal, so a
 district can tighten it without shipping a new build, and a compromised
 publisher can be demoted at runtime.

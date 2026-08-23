@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from agentx.dashboard.app import app
-from agentx.guardrails import redact_clinical
-from agentx.media import VOICES, speak
+from hopscotch.dashboard.app import app
+from hopscotch.guardrails import redact_clinical
+from hopscotch.media import VOICES, speak
 
 
 def test_redaction_fails_closed_when_the_model_is_unreachable(monkeypatch):
@@ -18,7 +18,7 @@ def test_redaction_fails_closed_when_the_model_is_unreachable(monkeypatch):
     labelled as done. The caller refuses the handoff on False."""
     def boom():
         raise RuntimeError("no credentials")
-    monkeypatch.setattr("agentx.genai.client", boom)
+    monkeypatch.setattr("hopscotch.genai.client", boom)
 
     original = "WISC-V Full Scale IQ of 87 (19th percentile)."
     out, ok = redact_clinical(original, student_ref="stu_0001")
@@ -29,10 +29,10 @@ def test_redaction_fails_closed_when_the_model_is_unreachable(monkeypatch):
 def test_family_handoff_refuses_unredacted_clinical_content(monkeypatch):
     """The independent second gate. Even if projection failed upstream, a
     notice flagged clinical does not go out unredacted."""
-    from agentx.agents.family import prepare_handoff
-    from agentx.schemas import DraftedNotice
+    from hopscotch.agents.family import prepare_handoff
+    from hopscotch.schemas import DraftedNotice
 
-    monkeypatch.setattr("agentx.guardrails.redact_clinical",
+    monkeypatch.setattr("hopscotch.guardrails.redact_clinical",
                         lambda text, **kw: (text, False))
     notice = DraftedNotice(student_ref="stu_0001", notice_type="prior_written_notice",
                            body="Full Scale IQ of 87.", contains_clinical=True)
@@ -57,7 +57,7 @@ def test_audio_is_cached_by_content_not_regenerated(tmp_path, monkeypatch):
             calls["n"] += 1
             return type("R", (), {"audio_content": b"ID3fake"})()
 
-    import agentx.media as media
+    import hopscotch.media as media
     monkeypatch.setattr(media, "MEDIA_DIR", tmp_path)
     monkeypatch.setitem(__import__("sys").modules, "google.cloud.texttospeech",
                         __import__("google.cloud.texttospeech", fromlist=["x"]))

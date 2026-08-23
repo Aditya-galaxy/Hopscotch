@@ -1,6 +1,6 @@
 # Architecture
 
-AgentX is an always-on agent fleet that runs a school district's special
+Hopscotch is an always-on agent fleet that runs a school district's special
 education compliance office, plus the governance that makes a district
 *permitted* to run it near student records.
 
@@ -205,7 +205,7 @@ not something it could have done anyway. And persistence differs: a terminal
 command runs once; a skill reloads on every future invocation, including
 sessions that never saw the page that shaped it.
 
-So the tier should follow the agent's authority. AgentX is a scoped fleet, so
+So the tier should follow the agent's authority. Hopscotch is a scoped fleet, so
 AGENT_AUTHORED is strictest here.
 
 The table is **org-configurable data**, not a hardcoded literal, so a
@@ -300,7 +300,7 @@ Platform and requires organisation-level setup. Probed on this project and
 confirmed unavailable to a personal Cloud account — `deploy/probe.sh` reports
 it, and this is the fallback that script promises.
 
-`src/agentx/registry.py` implements the same three responsibilities against
+`src/hopscotch/registry.py` implements the same three responsibilities against
 Firestore, enforcing exactly the scopes declared in `registry/*.agent.yaml`:
 
 | Responsibility | Implementation |

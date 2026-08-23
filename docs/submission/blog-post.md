@@ -192,7 +192,7 @@ only one is safe to conflate with yes.
 *Try it in about two minutes, no cloud credentials required:*
 
 ```bash
-git clone https://github.com/Aditya-galaxy/AgentX.git && cd AgentX
+git clone https://github.com/Aditya-galaxy/Hopscotch.git && cd Hopscotch
 make install && make test
 make scan SKILL=data/replicas/credential-helper ARGS=--structural-only
 ```

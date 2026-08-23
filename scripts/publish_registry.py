@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 
-from agentx.registry import discover, load_cards, publish
+from hopscotch.registry import discover, load_cards, publish
 
 
 def main() -> None:

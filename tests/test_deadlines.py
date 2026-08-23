@@ -1,8 +1,8 @@
 """The deadline math is the one thing here that must not be approximately right."""
 from datetime import date
 
-from agentx.deadlines import compute_deadline, due_escalation, superseded_by
-from agentx.jurisdictions import demo_calendar
+from hopscotch.deadlines import compute_deadline, due_escalation, superseded_by
+from hopscotch.jurisdictions import demo_calendar
 
 CAL = demo_calendar()
 

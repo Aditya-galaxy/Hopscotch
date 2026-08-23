@@ -66,7 +66,7 @@ def test_every_third_party_import_is_declared():
     missing = []
     for mod in sorted(imported()):
         top = mod.split(".")[0]
-        if top in sys.stdlib_module_names or top == "agentx":
+        if top in sys.stdlib_module_names or top == "hopscotch":
             continue
         if any(mod == p or mod.startswith(p + ".") for p in PROVIDED_TRANSITIVELY) \
                 and not any(mod.startswith(k) for k in DISTRIBUTION):

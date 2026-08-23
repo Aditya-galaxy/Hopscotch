@@ -1,7 +1,7 @@
 """Scan a skill folder and print the verdict.
 
-    python -m agentx.skills.cli data/replicas/credential-helper --origin community
-    python -m agentx.skills.cli data/corpora/mattpocock-skills --all
+    python -m hopscotch.skills.cli data/replicas/credential-helper --origin community
+    python -m hopscotch.skills.cli data/corpora/mattpocock-skills --all
 """
 from __future__ import annotations
 
