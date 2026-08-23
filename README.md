@@ -340,10 +340,50 @@ for why that inverts what shipping runtimes do.
 
 ---
 
-## Where this goes
+## Claim readiness — the first slice of the second half
 
-The second half — **school-based Medicaid claiming** — is designed for and not
-built. What it needs that does not exist yet:
+`src/hopscotch/claims.py` answers one question: **would this session survive an
+audit?** It reports; it never generates a claim. Over-claiming triggers
+recoupment, which is worse than the underclaiming this exists to fix.
+
+Published guidance is consistent about the test — *documentation must tell a
+consistent story across the IEP, the service log, and the claim* — and that
+splits the same way the skill gate does:
+
+**Rules** (free, deterministic): Medicaid eligibility · NPI present · licence
+valid on the service date · approved provider type · service date inside the IEP
+window · billed units against documented minutes · note present.
+
+**Meaning** (one model call): does the session note actually describe the service
+the IEP authorizes?
+
+That second check is the whole point. Take a session that is eligible,
+correctly licensed, right provider type, correct units, with a real note — every
+rule passes:
+
+```
+group vs individual    billable=False
+  BLOCK  note is consistent with the authorized service:
+         discrepant: the note describes a group session, but the
+         authorized service is individual therapy
+```
+
+Nothing in the rules catches that. It is a genuine denial and there is no
+pattern for it.
+
+**Over-billing blocks; under-billing only flags.** Asymmetric on purpose —
+over-billing is recoupment, under-billing is the district's own money left on
+the table:
+
+```
+under-billed           billable=True
+  risk   billed 1 unit against 30 min (supports 2) — under-billed,
+         revenue left unclaimed
+```
+
+That second line is the revenue half doing its job.
+
+### Still missing before this is a claiming product
 
 | | |
 |---|---|
@@ -353,11 +393,11 @@ built. What it needs that does not exist yet:
 | State plan rules | billable service definitions, which vary far more than evaluation timelines do |
 | Random-moment time study | participation is a condition of reimbursement in most states |
 
-None of that is a change to the architecture. The statutory clock, the
-identity-shaped projections, the audit trail and the capability gate all stay as
-they are — the claiming module asks a different question of the same governed
-records. The work is domain rules and integration, which is exactly the
-unglamorous 90% between a demonstration and a product.
+None of that is a change to the architecture — the module already asks its
+different question of the same governed records. The work is domain rules and
+integration, which is the unglamorous 90% between a demonstration and a product.
+And critically: **nothing here submits a claim.** It tells a coordinator what
+would be denied and what money is being left behind.
 
 The step that would actually validate it: put it in front of a district
 compliance coordinator and watch which half they reach for first.

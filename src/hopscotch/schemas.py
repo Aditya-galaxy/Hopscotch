@@ -106,6 +106,63 @@ class DailyBrief(BaseModel):
     generated_by: str = "coordinator"
 
 
+# --- Medicaid claiming ------------------------------------------------------
+
+class IEPService(BaseModel):
+    """A service the IEP authorizes. The claim is measured against this."""
+    goal_ref: str
+    service: str = Field(description="e.g. 'speech-language therapy, individual'")
+    minutes_per_session: int
+    sessions_per_week: int
+    provider_type: str = Field(description="Approved provider type required")
+    starts_on: date
+    ends_on: date
+
+
+class ServiceDelivery(BaseModel):
+    """One session actually delivered. What a provider logs."""
+    student_ref: str
+    goal_ref: str
+    service_date: date
+    minutes: int = Field(description="Documented duration")
+    units_billed: int = Field(description="Units submitted on the claim")
+    note: str = Field(description="The provider's session note, free text")
+    provider_npi: str = ""
+    provider_type: str = ""
+    provider_license_expires: date | None = None
+
+
+class ClaimCheck(BaseModel):
+    requirement: str
+    passed: bool
+    blocking: bool = Field(
+        default=True,
+        description="A failed blocking check makes the claim unbillable; a "
+                    "failed non-blocking one is an audit risk worth fixing.")
+    detail: str = ""
+
+
+class ClaimReadiness(BaseModel):
+    """Whether this session could be billed, and if not, precisely why."""
+    student_ref: str
+    goal_ref: str
+    service_date: date
+    billable: bool
+    checks: list[ClaimCheck] = Field(default_factory=list)
+    reviewed_semantically: bool = Field(
+        default=False,
+        description="False when the narrative check could not run. The claim "
+                    "is then NOT marked billable -- unchecked is not clean.")
+
+    @property
+    def blocking_failures(self) -> list[ClaimCheck]:
+        return [c for c in self.checks if not c.passed and c.blocking]
+
+    @property
+    def audit_risks(self) -> list[ClaimCheck]:
+        return [c for c in self.checks if not c.passed and not c.blocking]
+
+
 class WorkerResult(BaseModel):
     """Envelope every worker returns through. The supervisor reads this first."""
     agent: str
