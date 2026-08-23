@@ -238,7 +238,8 @@ guarantee holding in production, not in a test.
 ![System overview](docs/diagrams/01-system-overview.png)
 
 Full diagrams, trust boundaries, and the tick sequence:
-**[docs/architecture.md](docs/architecture.md)** · source and PNGs in
+**[docs/architecture.md](docs/architecture.md)** · requirements and phased
+roadmap: **[docs/product-requirements.md](docs/product-requirements.md)** · source and PNGs in
 [docs/diagrams/](docs/diagrams/)
 
 | Track requirement | Product | Where |
