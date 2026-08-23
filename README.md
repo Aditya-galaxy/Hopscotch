@@ -309,6 +309,21 @@ for why that inverts what shipping runtimes do.
 
 ---
 
+## Where this goes
+
+Compliance is a painkiller — it stops lawsuits, settlements and state findings.
+But painkillers are cost centres, and cost centres get cut.
+
+The revenue half is **school-based Medicaid claiming**: districts can bill
+Medicaid for special education services delivered to eligible students, and most
+underclaim by hundreds of thousands a year. The requirements are the records
+this system already governs — the service documented in the IEP, delivered in
+accordance with it, properly evidenced. Same student, same coordinator, second
+question.
+
+Together the argument becomes *"we stop the lawsuits, and we find the money that
+pays for us."* Not built. Named here because it is where the architecture points.
+
 ## Disclosures
 
 **All data is synthetic.** No real student record was used.

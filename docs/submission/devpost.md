@@ -174,6 +174,35 @@ not to look at them.
 
 ## What's next
 
-Wire the gate into a live runtime's skill-load path rather than reviewing a
-directory. Widen the benign corpus beyond one author. And have a district
-compliance coordinator actually use it, which is the only test that counts.
+**Close the loop that doesn't exist yet.** `notify.send` is a declared scope with
+no implementation — notices are drafted, redacted and voiced, then stop. Real
+delivery, real SIS integration, and real district calendars are the unglamorous
+90% between this and something a district could use.
+
+**Then school-based Medicaid claiming**, which is what makes it a business
+rather than a cost centre.
+
+Districts can bill Medicaid for special education services delivered to eligible
+students, and most underclaim badly. The reimbursement requirements are, almost
+word for word, what this system already holds: *the need for the service must be
+documented in the student's IEP; the services must be delivered in accordance
+with the IEP; the services must be properly documented.* Same student, same IEP,
+same coordinator — a second question asked of records the fleet already governs.
+
+The amounts are meaningful — hundreds of thousands annually for a single
+district — and they compound, because cost settlement sets future reimbursement
+baselines, so underclaiming one year lowers the ceiling for the next.
+
+That pairing is the point. Compliance is a painkiller: it stops lawsuits,
+settlements and state findings. But painkillers are cost centres, and cost
+centres get cut. Claiming is the revenue argument. Together the pitch stops
+being *"please find budget"* and becomes *"we stop the lawsuits, and we find the
+money that pays for us."*
+
+The architecture does not change to support it. The statutory clock, the
+identity-shaped projections, the audit trail and the capability gate all stay;
+the new work is state-by-state Medicaid state plan rules, which vary
+considerably more than the evaluation-timeline rules do.
+
+**And the thing that would actually validate any of this:** put it in front of a
+district compliance coordinator and watch which parts they ignore.
