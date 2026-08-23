@@ -11,13 +11,34 @@ from __future__ import annotations
 import html
 from datetime import date
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import Depends, FastAPI, Form, Header, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from ..config import PROJECT_NAME
 from ..registry import discover
 
 app = FastAPI(title=f"{PROJECT_NAME} — coordinator")
+
+
+def principal(authorization: str = Header(default="")):
+    """Resolve the caller.
+
+    Auth is ON unless REQUIRE_AUTH=false is set explicitly -- a missing setting
+    must lock people out rather than expose records. The public demo sets it to
+    false deliberately, and the page says so, because every record in it is
+    invented.
+    """
+    from ..auth import (NotAuthenticated, Principal, Role, auth_required, verify)
+
+    if not auth_required():
+        return Principal(email="demo@hopscotch.invalid", role=Role.COORDINATOR)
+    token = authorization.removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(401, "sign in required")
+    try:
+        return verify(token)
+    except NotAuthenticated as e:
+        raise HTTPException(401, str(e)) from e
 
 CSS = """
 :root{--paper:#F5F4F0;--surface:#fff;--ink:#1A1F1C;--soft:#4A5049;--muted:#767C74;
@@ -53,6 +74,13 @@ tr:last-child td{border-bottom:0}
 .card{background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:14px}
 .card h3{margin:0 0 4px;font-size:.9rem}.card p{margin:0 0 10px;color:var(--soft);font-size:.84rem}
 video,audio{width:100%;border-radius:3px}
+.banner{background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn);
+border-radius:4px;padding:9px 13px;font-size:.85rem;margin-bottom:14px}
+.banner code{background:transparent;color:inherit}
+.btn{font:inherit;font-size:.8rem;padding:4px 10px;border-radius:3px;cursor:pointer;
+border:1px solid var(--accent);background:var(--accent);color:#fff}
+.btn.ghost{background:transparent;color:var(--muted);border-color:var(--rule)}
+.muted{color:var(--muted);font-size:.8rem}
 .empty{color:var(--muted);font-size:.88rem;padding:14px;background:var(--surface);
 border:1px dashed var(--rule);border-radius:4px}
 .brief{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--accent);
@@ -64,6 +92,16 @@ letter-spacing:.09em;color:var(--muted);font-weight:600}
 .brief ul{margin:0;padding-left:17px}.brief li{font-size:.88rem;color:var(--soft);margin-bottom:3px}
 .brief .by{margin-top:12px;font-size:.72rem;color:var(--muted)}
 """
+
+
+def _auth_banner() -> str:
+    from ..auth import auth_required
+    if auth_required():
+        return ""
+    return ("<div class=banner><b>Authentication disabled</b> — this is a public "
+            "demo and every record in it is synthetic. Set "
+            "<code>REQUIRE_AUTH=true</code> for a real deployment; it is the "
+            "default in code.</div>")
 
 
 def _pill(days: int | None) -> str:
@@ -107,6 +145,31 @@ def healthz() -> dict:
     return {"ok": True}
 
 
+@app.post("/outbox/{item_id}/approve")
+def approve_notice(item_id: str, who=Depends(principal)):
+    """A named human takes responsibility. The fleet cannot call this."""
+    from ..auth import NotPermitted
+    from ..delivery import approve
+    try:
+        who.require("notice.approve")
+    except NotPermitted as e:
+        raise HTTPException(403, str(e)) from e
+    approve(item_id, approved_by=who.email)
+    return RedirectResponse("/", status_code=303)
+
+
+@app.post("/outbox/{item_id}/reject")
+def reject_notice(item_id: str, who=Depends(principal)):
+    from ..auth import NotPermitted
+    from ..delivery import reject
+    try:
+        who.require("notice.approve")
+    except NotPermitted as e:
+        raise HTTPException(403, str(e)) from e
+    reject(item_id, rejected_by=who.email)
+    return RedirectResponse("/", status_code=303)
+
+
 @app.get("/media/{name}")
 def media(name: str):
     from ..media import MEDIA_DIR
@@ -114,6 +177,42 @@ def media(name: str):
     if not p.is_file() or MEDIA_DIR.resolve() not in p.parents:
         return HTMLResponse("not found", status_code=404)
     return FileResponse(p)
+
+
+def _outbox_html(who) -> str:
+    """Notices waiting on a person. Nothing here has been sent."""
+    e = html.escape
+    try:
+        from .. import store
+        pending = store.pending_outbound(limit=10)
+        summary = store.outbox_summary()
+    except Exception:
+        return ""
+    if not summary.get("total"):
+        return ""
+
+    can_approve = "notice.approve" in who.scopes
+    rows = ""
+    for i in pending:
+        buttons = (
+            f"<form method=post action='/outbox/{e(i.id)}/approve' style='display:inline'>"
+            f"<button class=btn>Approve &amp; send</button></form> "
+            f"<form method=post action='/outbox/{e(i.id)}/reject' style='display:inline'>"
+            f"<button class='btn ghost'>Reject</button></form>"
+            if can_approve else "<span class=muted>read-only</span>")
+        rows += (f"<tr><td class='mono'>{e(i.student_ref)}</td>"
+                 f"<td>{e(i.notice_type.replace('_',' '))}</td>"
+                 f"<td class='mono'>{e(i.language)}</td>"
+                 f"<td>{e(i.body[:90])}…</td><td>{buttons}</td></tr>")
+    rows = rows or "<tr><td colspan=5 class='empty'>nothing awaiting approval</td></tr>"
+    counts = " · ".join(f"{v} {k.replace('_',' ')}"
+                        for k, v in sorted(summary["by_status"].items()))
+
+    return (f"<h2>Outbox — awaiting a human</h2>"
+            f"<p class=sub>The fleet drafts and queues. Nothing reaches a family "
+            f"until a named person approves it. <b>{e(counts)}</b></p>"
+            f"<div class=scroll><table><tr><th>student</th><th>notice</th>"
+            f"<th>language</th><th>preview</th><th></th></tr>{rows}</table></div>")
 
 
 def _claims_html() -> str:
@@ -178,7 +277,7 @@ def _brief_html() -> str:
 
 
 @app.get("/", response_class=HTMLResponse)
-def index() -> str:
+def index(who=Depends(principal)) -> str:
     e = html.escape
     try:
         cases = _cases()
@@ -235,6 +334,7 @@ def index() -> str:
 <title>{PROJECT_NAME} — coordinator</title><style>{CSS}</style>
 <div class=wrap>
 <h1>Special education compliance</h1>
+{_auth_banner()}
 <div class=sub>{date.today().isoformat()} · every row below was updated by an
 unattended agent, not a person{f" · <b>{e(case_err)}</b>" if case_err else ""}</div>
 {_brief_html()}
@@ -251,6 +351,7 @@ unattended agent, not a person{f" · <b>{e(case_err)}</b>" if case_err else ""}<
 <div class=scroll><table><tr><th>agent</th><th>version</th><th>department</th><th>scopes</th></tr>{areg}</table></div>
 <h2>Audit trail</h2>
 <div class=scroll><table><tr><th>when</th><th>event</th><th>subject</th><th>detail</th></tr>{arows}</table></div>
+{_outbox_html(who)}
 {_claims_html()}
 <h2>Family-facing media</h2>
 <div class=media>{video}{players or "<div class=empty>no audio generated yet</div>"}</div>

@@ -121,6 +121,20 @@ def draft_and_send(
             log.warning("audio skipped for %s: %s: %s",
                         case.student_ref, type(e).__name__, str(e)[:200])
 
+        # Queue for a human. The fleet drafts; it does not decide to contact a
+        # family. Nothing leaves the outbox without a named approver.
+        try:
+            from .delivery import queue
+            queue(student_ref=case.student_ref, notice_type=notice.notice_type,
+                  subject=f"Special education evaluation — {case.student_ref}",
+                  body=packet.letter_text, language=packet.language or "en-US",
+                  audio_path=str(audio) if audio else None)
+            s.set_attribute("queued", True)
+        except Exception as e:
+            s.set_attribute("queued", False)
+            log.warning("outbox queue failed for %s: %s: %s",
+                        case.student_ref, type(e).__name__, str(e)[:160])
+
         s.set_attribute("language", packet.language or "en-US")
         s.set_attribute("audio", bool(audio))
         return NoticeResult(

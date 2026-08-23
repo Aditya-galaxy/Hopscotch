@@ -89,8 +89,12 @@ and acts on deadlines.
 - **FR-7** ✅ Remove every clinical finding before any family-facing output, and
   refuse the handoff if redaction did not run.
 - **FR-8** ✅ Produce the notice as speech in the family's language.
-- **FR-9** Deliver notices (mail, SMS, parent portal). **Not implemented.**
-- **FR-10** Record delivery and read receipts for the audit trail.
+- **FR-9** ✅ Deliver notices through a swappable driver, **only after a named
+  human approves**. The fleet drafts and queues; it never decides to contact a
+  family. File driver by default; SMTP is opt-in and refuses to guess a route.
+- **FR-10** ✅ Record who approved, when, and the provider reference. A failed
+  send is recorded as FAILED with the error, not swallowed.
+- **FR-10a** Read receipts and parent-portal delivery.
 
 ### Governance
 - **FR-11** ✅ Publish versioned agent cards; a bump creates a row, not an
@@ -135,7 +139,7 @@ and acts on deadlines.
 | **NFR-6** ✅ | Every decision reconstructable from the audit trail. |
 | **NFR-7** | FERPA review and a signed DPA before any real record. |
 | **NFR-8** | Data residency configurable per district. |
-| **NFR-9** | Human authentication and role model. |
+| **NFR-9** ✅ | Human authentication via verified Google ID tokens, domain allowlist, and a role model that **reuses the agent scope vocabulary** — one answer to "may this principal read clinical data", person or process. Auth is on unless explicitly disabled. |
 | **NFR-10** | Multi-tenant isolation. |
 | **NFR-11** | 600+ concurrent cases per district; ~13k districts. |
 
@@ -148,10 +152,12 @@ Compliance fleet, governance plane, capability gate, claim readiness, all on
 synthetic data. **Exit:** deployed, running unattended, measured results. *Done.*
 
 ### Phase 1 — One real district
-The unglamorous 90%. FR-5, FR-9, FR-10, NFR-7, NFR-9.
+The unglamorous 90%. **FR-9, FR-10 and NFR-9 are now done** — delivery behind a
+human approval gate, and authentication with a role model. What remains: FR-5
+(ingestion from a live document source), NFR-7 (FERPA review and a signed DPA),
+one district's actual calendar, and its state's real evaluation rules.
 
-Real ingestion, real delivery, real authentication, one district's actual
-calendar and its state's real evaluation rules, FERPA review and a DPA.
+The remaining engineering is small. The remaining legal work is not.
 
 **Exit:** one district runs it against live records for a full evaluation cycle
 without a compliance incident.

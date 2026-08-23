@@ -55,7 +55,7 @@ def run_tick(
 
     counts = {"scanned": 0, "escalated": 0, "suppressed": 0, "notices_sent": 0,
               "needs_intake": 0, "dead_lettered": 0, "errors": 0,
-              "claims_assessed": 0, "claims_billable": 0}
+              "claims_assessed": 0, "claims_billable": 0, "notices_delivered": 0}
     drafted = 0
 
     with span("job.tick", day=today.isoformat(), run_key=run_key) as s:
@@ -150,6 +150,14 @@ def run_tick(
                         case.escalations_sent.append(retired)
 
             store.upsert_case(case)
+
+        # Deliver anything a human approved since the last tick. The fleet
+        # never approves its own notices.
+        try:
+            from ..delivery import send_approved
+            counts["notices_delivered"] = send_approved(store=store)
+        except Exception as e:
+            log.warning("delivery pass skipped: %s: %s", type(e).__name__, str(e)[:160])
 
         # Claim readiness on any session logged since the last tick. Bounded
         # for the same reason notices are: a model call per session, and a

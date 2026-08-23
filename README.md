@@ -65,10 +65,11 @@ once for every question you then ask of those records. The pitch is
 not *"please find budget"* — it is **"we stop the lawsuits, and we find the
 money that pays for us."**
 
-> **Built today: the first half.** The clock, the fleet, the governance, and the
-> capability gate are deployed and running. Claiming is designed for and not
-> implemented — see [where this goes](#where-this-goes). Notices are also
-> *generated but never delivered*; there is no send path. Full scope in
+> **Built and deployed:** the clock, the fleet, the governance plane, the
+> capability gate, claim readiness, delivery behind a human approval gate, and
+> authentication with a role model. **Not built:** ingestion from a live
+> document source, Medicaid data feeds, claim submission, multi-tenancy,
+> attested identity, and FERPA review. Full scope in
 > [honest limits](docs/architecture.md#honest-limits).
 
 ## What it actually does

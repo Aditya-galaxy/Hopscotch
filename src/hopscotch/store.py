@@ -117,6 +117,41 @@ def readiness_summary() -> dict:
             "blocked": blocked, "underbilled_sessions": unclaimed_units}
 
 
+# --- outbox -----------------------------------------------------------------
+
+def upsert_outbound(item) -> None:
+    _client().collection("outbox").document(item.id).set(item.model_dump(mode="json"))
+
+
+def get_outbound(item_id: str):
+    from .delivery import Outbound
+    snap = _client().collection("outbox").document(item_id).get()
+    return Outbound.model_validate(snap.to_dict()) if snap.exists else None
+
+
+def pending_outbound(limit: int = 50) -> list:
+    from .delivery import Outbound
+    q = (_client().collection("outbox")
+         .where(filter=firestore.FieldFilter("status", "==", "pending_approval"))
+         .limit(limit))
+    return [Outbound.model_validate(d.to_dict()) for d in q.stream()]
+
+
+def approved_outbound(limit: int = 20) -> list:
+    from .delivery import Outbound
+    q = (_client().collection("outbox")
+         .where(filter=firestore.FieldFilter("status", "==", "approved")).limit(limit))
+    return [Outbound.model_validate(d.to_dict()) for d in q.stream()]
+
+
+def outbox_summary() -> dict:
+    rows = [d.to_dict() for d in _client().collection("outbox").limit(500).stream()]
+    by = {}
+    for r in rows:
+        by[r.get("status", "?")] = by.get(r.get("status", "?"), 0) + 1
+    return {"total": len(rows), "by_status": by}
+
+
 def dead_letter(result: WorkerResult, *, student_ref: str, reason: str,
                 run_key: str) -> None:
     """Where work goes when the fleet cannot finish it. A human queue, not /dev/null."""
