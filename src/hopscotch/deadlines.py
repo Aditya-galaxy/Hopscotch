@@ -147,27 +147,63 @@ def superseded_by(rung: int) -> list[int]:
     return [r for r in ESCALATION_LADDER if r >= rung]
 
 
+def latest_correction(case: Case, field: str):
+    """Most recent human override of a field, if any."""
+    matches = [c for c in case.corrections if c.field == field]
+    return max(matches, key=lambda c: c.at) if matches else None
+
+
 def recompute(case: Case, *, today: date | None = None) -> DeadlineComputation:
     """Deadline for a case as it stands right now.
+
+    A human override wins. That is the whole point of having one: the
+    jurisdiction table is illustrative, districts know their own rules, and a
+    system that cannot be corrected by the person accountable for the outcome
+    will simply be worked around in a spreadsheet.
+
+    The computed value is preserved in the explanation rather than discarded,
+    so a coordinator can see what the fleet thought and judge whether it is
+    getting better.
 
     Lives here rather than in agents/clock.py on purpose: the tick job must be
     able to do this arithmetic without importing an LLM framework, and this is
     the code path where a wrong answer has legal consequences.
     """
-    if case.consent is None:
+    today = today or date.today()
+
+    # A corrected due date short-circuits the whole calculation.
+    override = latest_correction(case, "due_on")
+    if override is not None:
+        return DeadlineComputation(
+            student_ref=case.student_ref, jurisdiction=case.jurisdiction,
+            rule_label=f"human override by {override.by}",
+            clock_started_on=(case.consent.consent_signed_on
+                              if case.consent and case.consent.consent_signed_on
+                              else override.value),
+            due_on=override.value,
+            days_remaining=(override.value - today).days, excluded_days=0,
+            explanation=(f"Overridden by {override.by}: {override.reason}. "
+                         f"Fleet had computed {override.computed_was or 'nothing'}."))
+
+    # A corrected consent date restarts the clock from the right place.
+    signed_correction = latest_correction(case, "consent_signed_on")
+
+    if case.consent is None and signed_correction is None:
         raise ValueError(f"{case.student_ref} has no consent event; clock not started")
-    if case.consent.consent_signed_on is None:
+    if signed_correction is None and case.consent.consent_signed_on is None:
         raise ClockCannotStart(
             f"{case.student_ref}: consent signature date is illegible. A "
             "statutory clock started from a guessed date is worse than one a "
             "human is asked to confirm.")
-    return compute_deadline(
-        student_ref=case.student_ref,
-        jurisdiction_key=case.jurisdiction,
-        clock_started_on=case.consent.consent_signed_on,
-        calendar=demo_calendar(),
-        today=today,
-    )
+    started = (signed_correction.value if signed_correction
+               else case.consent.consent_signed_on)
+    comp = compute_deadline(
+        student_ref=case.student_ref, jurisdiction_key=case.jurisdiction,
+        clock_started_on=started, calendar=demo_calendar(), today=today)
+    if signed_correction is not None:
+        comp.explanation += (f" Consent date supplied by {signed_correction.by}: "
+                             f"{signed_correction.reason}.")
+    return comp
 
 
 def pending_escalation(case: Case, comp: DeadlineComputation) -> int | None:

@@ -81,6 +81,9 @@ border-radius:4px;padding:9px 13px;font-size:.85rem;margin-bottom:14px}
 border:1px solid var(--accent);background:var(--accent);color:#fff}
 .btn.ghost{background:transparent;color:var(--muted);border-color:var(--rule)}
 .muted{color:var(--muted);font-size:.8rem}
+.fix{display:flex;gap:4px}
+.fix input{font:inherit;font-size:.76rem;padding:3px 6px;border:1px solid var(--rule);
+border-radius:3px;background:var(--paper);color:var(--ink);max-width:120px}
 .empty{color:var(--muted);font-size:.88rem;padding:14px;background:var(--surface);
 border:1px dashed var(--rule);border-radius:4px}
 .brief{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--accent);
@@ -127,6 +130,7 @@ def _cases() -> list[dict]:
             "due": d.due_on.isoformat() if d else "—",
             "days": d.days_remaining if d else None,
             "sent": ", ".join(f"T-{r}" for r in sorted(c.escalations_sent, reverse=True)) or "—",
+            "corrected": bool(c.corrections),
         })
     return sorted(rows, key=lambda r: (r["days"] is not None, r["days"] if r["days"] is not None else 0))
 
@@ -167,6 +171,35 @@ def reject_notice(item_id: str, who=Depends(principal)):
     except NotPermitted as e:
         raise HTTPException(403, str(e)) from e
     reject(item_id, rejected_by=who.email)
+    return RedirectResponse("/", status_code=303)
+
+
+@app.post("/case/{student_ref}/correct")
+def correct_case(student_ref: str, field: str = Form(...), value: str = Form(...),
+                 reason: str = Form(...), who=Depends(principal)):
+    """A coordinator overriding the fleet. Requires a reason, always."""
+    from datetime import date as _date
+
+    from ..auth import NotPermitted
+    from ..schemas import Correction
+    from .. import store
+
+    try:
+        who.require("case.write")
+    except NotPermitted as e:
+        raise HTTPException(403, str(e)) from e
+    if not reason.strip():
+        raise HTTPException(400, "a correction needs a reason")
+
+    case = store.get_case(student_ref)
+    was = (case.deadline.due_on.isoformat()
+           if case and case.deadline and field == "due_on" else "")
+    try:
+        store.apply_correction(student_ref, Correction(
+            field=field, value=_date.fromisoformat(value),
+            reason=reason.strip(), by=who.email, computed_was=was))
+    except (KeyError, ValueError) as e:
+        raise HTTPException(400, str(e)) from e
     return RedirectResponse("/", status_code=303)
 
 
@@ -291,11 +324,25 @@ def index(who=Depends(principal)) -> str:
     week = sum(1 for c in cases if c["days"] is not None and 0 <= c["days"] <= 7)
     intake = sum(1 for c in cases if c["days"] is None)
 
-    rows = "".join(
-        f"<tr><td class='mono'>{e(c['ref'])}</td><td class='mono'>{e(c['school'])}</td>"
-        f"<td class='mono'>{e(c['jur'])}</td><td class='mono'>{e(c['due'])}</td>"
-        f"<td>{_pill(c['days'])}</td><td class='mono'>{e(c['sent'])}</td></tr>"
-        for c in cases[:40]) or "<tr><td colspan=6 class='empty'>no open cases</td></tr>"
+    can_write = "case.write" in who.scopes
+    rows = ""
+    for c in cases[:40]:
+        fix = ""
+        if can_write:
+            field = "consent_signed_on" if c["days"] is None else "due_on"
+            label = "Set consent date" if c["days"] is None else "Override"
+            fix = (f"<form method=post action='/case/{e(c['ref'])}/correct' class=fix>"
+                   f"<input type=hidden name=field value='{field}'>"
+                   f"<input type=date name=value required>"
+                   f"<input type=text name=reason placeholder='reason' required>"
+                   f"<button class='btn ghost'>{label}</button></form>")
+        flag = ("<span class='pill warn' title='human override'>corrected</span> "
+                if c.get("corrected") else "")
+        rows += (f"<tr><td class='mono'>{e(c['ref'])}</td><td class='mono'>{e(c['school'])}</td>"
+                 f"<td class='mono'>{e(c['jur'])}</td><td class='mono'>{flag}{e(c['due'])}</td>"
+                 f"<td>{_pill(c['days'])}</td><td class='mono'>{e(c['sent'])}</td>"
+                 f"<td>{fix}</td></tr>")
+    rows = rows or "<tr><td colspan=7 class='empty'>no open cases</td></tr>"
 
     try:
         agents = discover()
@@ -346,7 +393,7 @@ unattended agent, not a person{f" · <b>{e(case_err)}</b>" if case_err else ""}<
   <div class=tile><div class=n>{len(agents)}</div><div class=l>agents published</div></div>
 </div>
 <h2>Caseload</h2>
-<div class=scroll><table><tr><th>student</th><th>school</th><th>jurisdiction</th><th>due</th><th>status</th><th>notices sent</th></tr>{rows}</table></div>
+<div class=scroll><table><tr><th>student</th><th>school</th><th>jurisdiction</th><th>due</th><th>status</th><th>notices sent</th><th></th></tr>{rows}</table></div>
 <h2>Agent registry</h2>
 <div class=scroll><table><tr><th>agent</th><th>version</th><th>department</th><th>scopes</th></tr>{areg}</table></div>
 <h2>Audit trail</h2>

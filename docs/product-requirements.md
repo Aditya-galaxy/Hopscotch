@@ -122,7 +122,10 @@ and acts on deadlines.
 - **FR-25** ✅ Show caseload ordered by urgency, registry, audit trail, media.
 - **FR-26** ✅ Produce a daily brief: headline, what needs a human, what moved
   overnight, what to watch.
-- **FR-27** Accept coordinator corrections and adapt.
+- **FR-27** ✅ Accept coordinator corrections: override a computed deadline, or
+  supply a consent date the extractor could not read. A reason is required, the
+  computed value is preserved beside the override, and correcting re-opens the
+  escalation ladder so a corrected case does not stay silent.
 - **FR-28** Answer direct questions about a case.
 
 ---

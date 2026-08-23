@@ -95,6 +95,14 @@ what needs a human today, what the fleet did overnight, what to watch. It reads
 the audit trail too, so a live run surfaced *"blocked unauthorized scope access
 attempts from rogue-agent and family-agent"* without being asked to.
 
+**And a person can overrule it.** A coordinator can override a computed deadline
+or supply a consent date the extractor could not read. A reason is required, the
+fleet's own value is kept beside the override, and the escalation ladder re-opens
+so a corrected case does not stay quiet. The jurisdiction table is illustrative
+and districts know their own rules — a system that cannot be corrected by the
+person accountable for the outcome gets worked around in a spreadsheet, which is
+the state it exists to replace.
+
 A person only sees what it could not clear.
 
 ---

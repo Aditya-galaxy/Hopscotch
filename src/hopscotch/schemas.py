@@ -6,7 +6,7 @@ cheaply, before anything downstream acts on it.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Literal
 
@@ -75,6 +75,22 @@ class FamilyPacket(BaseModel):
     redaction_applied: bool
 
 
+class Correction(BaseModel):
+    """A human overriding the fleet, on the record.
+
+    Corrections are additive and never destructive: the computed value stays
+    visible beside the override, because a coordinator who cannot see what the
+    system thought has no way to judge whether it is improving.
+    """
+    field: Literal["consent_signed_on", "due_on"]
+    value: date
+    reason: str = Field(description="Why. Required — an unexplained override is "
+                                    "indistinguishable from a mistake.")
+    by: str
+    at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    computed_was: str = Field(default="", description="What the fleet had")
+
+
 class Case(BaseModel):
     student_ref: str
     school_code: str
@@ -83,6 +99,7 @@ class Case(BaseModel):
     consent: ConsentEvent | None = None
     deadline: DeadlineComputation | None = None
     escalations_sent: list[int] = Field(default_factory=list)
+    corrections: list[Correction] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 

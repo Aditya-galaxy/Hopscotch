@@ -117,6 +117,30 @@ def readiness_summary() -> dict:
             "blocked": blocked, "underbilled_sessions": unclaimed_units}
 
 
+def apply_correction(student_ref: str, correction) -> None:
+    """Record a human override and re-open the clock for it.
+
+    Escalations already sent are cleared so a corrected deadline re-evaluates
+    from scratch -- otherwise a case corrected from 'overdue' to 'due in three
+    weeks' would stay silent because its rungs were already spent.
+    """
+    from .idempotency import effect_id
+
+    case = get_case(student_ref)
+    if case is None:
+        raise KeyError(student_ref)
+    case.corrections.append(correction)
+    case.escalations_sent = []
+    upsert_case(case)
+
+    audit("case_corrected",
+          effect_id=effect_id("correction", student_ref, correction.field,
+                              correction.at.isoformat()),
+          student_ref=student_ref, field=correction.field,
+          value=correction.value.isoformat(), reason=correction.reason,
+          by=correction.by, computed_was=correction.computed_was)
+
+
 # --- outbox -----------------------------------------------------------------
 
 def upsert_outbound(item) -> None:
