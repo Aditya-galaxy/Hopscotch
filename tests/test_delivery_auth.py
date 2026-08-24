@@ -182,3 +182,54 @@ def test_the_password_is_read_in_exactly_one_place():
     src = pathlib.Path("src/hopscotch").rglob("*.py")
     hits = [p.name for p in src if "SMTP_PASSWORD" in p.read_text()]
     assert hits == ["delivery.py"], f"SMTP_PASSWORD read outside delivery.py: {hits}"
+
+
+# --- security headers --------------------------------------------------------
+
+def test_every_response_carries_security_headers():
+    """A page that renders children's records should not rely on browser
+    defaults for framing, sniffing or caching."""
+    from fastapi.testclient import TestClient
+
+    from hopscotch.dashboard.app import app
+
+    r = TestClient(app).get("/healthz")
+    for header, expected in (
+        ("X-Frame-Options", "DENY"),
+        ("X-Content-Type-Options", "nosniff"),
+        ("Referrer-Policy", "no-referrer"),
+    ):
+        assert r.headers.get(header) == expected, f"missing {header}"
+    assert "no-store" in r.headers.get("Cache-Control", "")
+    assert "max-age=" in r.headers.get("Strict-Transport-Security", "")
+
+
+def test_csp_forbids_scripts_entirely():
+    """Affordable because the dashboard is server-rendered with no JavaScript.
+    If someone adds a script tag this breaks loudly, which is correct."""
+    from fastapi.testclient import TestClient
+
+    from hopscotch.dashboard.app import app
+
+    csp = TestClient(app).get("/healthz").headers.get("Content-Security-Policy", "")
+    assert "script-src 'none'" in csp, "scripts are not forbidden"
+    assert "frame-ancestors 'none'" in csp, "the page can be framed"
+    assert "object-src 'none'" in csp
+
+
+def test_the_page_really_has_no_javascript():
+    """The CSP above is only honest if this holds."""
+    import pathlib
+    src = pathlib.Path("src/hopscotch/dashboard/app.py").read_text()
+    assert "<script" not in src.lower(), "a script tag would violate the CSP we send"
+
+
+def test_api_explorer_is_disabled():
+    """An interactive endpoint enumerator on a page rendering student records."""
+    from fastapi.testclient import TestClient
+
+    from hopscotch.dashboard.app import app
+
+    c = TestClient(app)
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert c.get(path).status_code == 404, f"{path} is exposed"
