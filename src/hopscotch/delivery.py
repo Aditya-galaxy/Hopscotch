@@ -93,6 +93,27 @@ class FileDriver:
         return str(p)
 
 
+def _smtp_password() -> str | None:
+    """Read the SMTP password from a mounted secret, falling back to env.
+
+    Cloud Run can mount a Secret Manager version as a FILE, which is preferable
+    to an environment variable: env vars are visible in the service description,
+    leak into crash dumps and subprocess environments, and are trivially printed
+    by any code that logs os.environ. A mounted file is read once, at the moment
+    it is needed.
+
+    The env fallback exists for local development only, and this function is the
+    single place either is read -- so the value never lands in a log line.
+    """
+    path = os.environ.get("SMTP_PASSWORD_FILE")
+    if path:
+        try:
+            return Path(path).read_text().strip() or None
+        except OSError:
+            return None
+    return os.environ.get("SMTP_PASSWORD") or None
+
+
 @dataclass
 class SmtpDriver:
     """Real send. Configured, never guessed -- a missing host raises."""
@@ -114,7 +135,7 @@ class SmtpDriver:
         port = int(os.environ.get("SMTP_PORT", "587"))
         with smtplib.SMTP(host, port, timeout=20) as s:
             s.starttls()
-            user, pw = os.environ.get("SMTP_USER"), os.environ.get("SMTP_PASSWORD")
+            user, pw = os.environ.get("SMTP_USER"), _smtp_password()
             if user and pw:
                 s.login(user, pw)
             s.send_message(msg)

@@ -144,3 +144,41 @@ def test_human_roles_reuse_the_agent_scope_vocabulary():
     shared = agent_scopes & human_scopes
     assert "case.read_full" in shared
     assert "case.read_redacted" in shared
+
+
+# --- secret handling ---------------------------------------------------------
+
+def test_password_is_read_from_a_mounted_file_not_the_environment(tmp_path, monkeypatch):
+    """Cloud Run mounts a Secret Manager version as a file. That is preferable to
+    an env var, which is visible in the service description, leaks into crash
+    dumps and subprocess environments, and is printed by anything that logs
+    os.environ."""
+    from hopscotch.delivery import _smtp_password
+
+    secret = tmp_path / "smtp-password"
+    secret.write_text("from-secret-manager\n")
+    monkeypatch.setenv("SMTP_PASSWORD_FILE", str(secret))
+    monkeypatch.setenv("SMTP_PASSWORD", "from-env-should-be-ignored")
+    assert _smtp_password() == "from-secret-manager"
+
+
+def test_env_fallback_exists_for_local_development(monkeypatch):
+    from hopscotch.delivery import _smtp_password
+    monkeypatch.delenv("SMTP_PASSWORD_FILE", raising=False)
+    monkeypatch.setenv("SMTP_PASSWORD", "local-dev")
+    assert _smtp_password() == "local-dev"
+
+
+def test_missing_secret_yields_none_rather_than_a_partial_login(monkeypatch, tmp_path):
+    from hopscotch.delivery import _smtp_password
+    monkeypatch.setenv("SMTP_PASSWORD_FILE", str(tmp_path / "does-not-exist"))
+    monkeypatch.delenv("SMTP_PASSWORD", raising=False)
+    assert _smtp_password() is None
+
+
+def test_the_password_is_read_in_exactly_one_place():
+    """If a second call site appears, the value can reach a log line."""
+    import pathlib
+    src = pathlib.Path("src/hopscotch").rglob("*.py")
+    hits = [p.name for p in src if "SMTP_PASSWORD" in p.read_text()]
+    assert hits == ["delivery.py"], f"SMTP_PASSWORD read outside delivery.py: {hits}"

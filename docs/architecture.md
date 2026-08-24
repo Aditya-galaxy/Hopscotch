@@ -449,6 +449,34 @@ package present remotely; defining the agent in the deploy script makes it
 self-contained. And the managed runtime imports `vertexai` itself even when the
 agent does not.
 
+## Security posture
+
+Audited rather than assumed. What was found and fixed:
+
+| Finding | Fix |
+|---|---|
+| `/media/{name}` served any student's audio to an **anonymous** request — 200, 165KB | Route removed. Audio is reached through the outbox item it belongs to, requires a session and a case-read scope. |
+| The dashboard applied **no per-caller filtering** — every signed-in user saw the whole caseload and audit trail | `gateway.project_for_scopes()` keys the same field classification on scopes, so a person and a process get the same answer. |
+| The audit trail used `set()` — a later write could **overwrite a row** | `create()`, with `AlreadyExists` as the idempotency signal. Verified: the second write returns `False` and the original survives. |
+| **No security headers** at all | CSP with `script-src 'none'`, HSTS, `X-Frame-Options: DENY`, nosniff, no-referrer, `Cache-Control: no-store`. `/openapi.json` disabled alongside `/docs`. |
+| Writes were possible **without authentication** | Writes require auth. If we cannot say who acted, we do not let them act — so the read-only demo is safe by construction, not by remembering. |
+| Dashboard shared a **model-capable** identity with the fleet | Its own service account, with no Vertex, Model Armor or Memory Bank access. |
+| SMTP password was an **environment variable** | Secret Manager, mounted as a file at `/secrets/smtp/password`. |
+
+### Two things stated honestly rather than claimed
+
+**Firestore IAM cannot scope per collection.** `roles/datastore.user` is read *and*
+write across the database, so the dashboard's identity is not read-only. What the
+split does achieve is real: a dashboard compromise cannot call a model, cannot
+call Model Armor and cannot reach Memory Bank. Per-collection enforcement is the
+application gateway's job, which is where it lives and where it is tested.
+
+**A mounted secret file beats an environment variable** because env vars appear
+in the service description, leak into crash dumps and subprocess environments,
+and are printed by anything that logs `os.environ`. A test asserts
+`SMTP_PASSWORD` is read in exactly one module, so a second call site cannot
+quietly appear and put the value in a log line.
+
 ## Honest limits
 
 This is a working demonstration, not a deployable product. The gap is worth

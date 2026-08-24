@@ -107,6 +107,33 @@ AGENT_ENGINE_ID="${AGENT_ENGINE_ID:-$(GOOGLE_CLOUD_PROJECT=$PROJECT_ID MODEL_ARM
   ./deploy/create_agent_engine.sh | head -1 | cut -d= -f2 | awk '{print $1}')}"
 echo "    AGENT_ENGINE_ID=$AGENT_ENGINE_ID"
 
+say "5c/9 secret + dashboard identity"
+# The SMTP password lives in Secret Manager and is MOUNTED AS A FILE on the
+# job, not passed as an environment variable. Env vars show up in the service
+# description, in crash dumps and in any subprocess environment.
+if ! have "gcloud secrets describe hopscotch-smtp-password --project=$PROJECT_ID"; then
+  printf 'unset-placeholder' | gcloud secrets create hopscotch-smtp-password \
+    --data-file=- --replication-policy=automatic --project="$PROJECT_ID" >/dev/null
+fi
+# The dashboard gets its OWN identity with no model access at all. Firestore IAM
+# cannot scope per collection, so this cannot be read-only -- what it CAN do is
+# ensure a dashboard compromise cannot call Vertex, cannot call Model Armor and
+# cannot reach Memory Bank. Per-collection enforcement is the application
+# gateway's job, and that is where it lives.
+if ! have "gcloud iam service-accounts describe hopscotch-dashboard@$PROJECT_ID.iam.gserviceaccount.com --project=$PROJECT_ID"; then
+  gcloud iam service-accounts create hopscotch-dashboard \
+    --display-name="Hopscotch dashboard (no model access)" --project="$PROJECT_ID"
+fi
+for role in roles/datastore.user roles/cloudtrace.agent; do
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:hopscotch-dashboard@$PROJECT_ID.iam.gserviceaccount.com" \
+    --role="$role" --condition=None >/dev/null 2>&1 || true
+done
+gcloud secrets add-iam-policy-binding hopscotch-smtp-password \
+  --member="serviceAccount:$RUN_SA@$PROJECT_ID.iam.gserviceaccount.com" \
+  --role=roles/secretmanager.secretAccessor --project="$PROJECT_ID" >/dev/null 2>&1 || true
+echo "    secret created; dashboard identity has no model access"
+
 say "6/9  runtime identity (least privilege)"
 # The job gets exactly two roles. Not Editor. The whole project is about
 # per-agent scoping -- starting with an over-permissioned runtime undercuts it.
@@ -144,6 +171,7 @@ gcloud run jobs deploy "$JOB" \
   --command python --args="-m,hopscotch.jobs.tick" \
   --service-account="$RUN_SA@$PROJECT_ID.iam.gserviceaccount.com" \
   --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_LOCATION=global,MODEL_ARMOR_LOCATION=$REGION,MODEL_ARMOR_TEMPLATE=$ARMOR_TEMPLATE,AGENT_ENGINE_ID=$AGENT_ENGINE_ID" \
+  --set-secrets="/secrets/smtp/password=hopscotch-smtp-password:latest" \
   --max-retries=1 --task-timeout=10m --memory=512Mi
 
 say "8/9  schedule it (hourly)"
