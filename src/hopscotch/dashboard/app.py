@@ -159,6 +159,26 @@ def reject_notice(item_id: str, request: Request, who=Depends(principal)):
     return RedirectResponse("/", status_code=303)
 
 
+@app.get("/claims/export.csv")
+def export_claims(who=Depends(principal)):
+    """The batch a billing vendor ingests. Export is not submission."""
+    from fastapi.responses import Response
+
+    from ..auth import NotPermitted
+    from ..claim import current_batch, to_csv
+
+    try:
+        who.require("claim.export")
+    except NotPermitted as exc:
+        raise HTTPException(403, str(exc)) from exc
+
+    body = to_csv(current_batch())
+    return Response(
+        content=body, media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="claims.csv"',
+                 "Cache-Control": "no-store"})
+
+
 @app.post("/case/{student_ref}/correct")
 def correct_case(student_ref: str, request: Request, field: str = Form(...),
                  value: str = Form(...), reason: str = Form(...),
@@ -401,6 +421,58 @@ def _claims_block(who) -> str:
             f"<th>why</th></tr>{rows}</table></div>")
 
 
+def _claim_batch_block(who) -> str:
+    """What is actually billable, coded, and what bundling withheld.
+
+    Readiness says a session would survive an audit. This says what code goes
+    on the claim -- and NCCI bundling is checked across the batch, because an
+    SLP separately reporting 97530 alongside 92507 is a recoupment finding
+    rather than a rejection at submission. It has to be caught before export.
+    """
+    if "claim.read" not in who.scopes:
+        return ""
+    try:
+        from ..claim import current_batch
+        batch = current_batch()
+    except Exception:
+        return ""
+    if not batch.lines:
+        return ""
+
+    codes: dict[str, int] = {}
+    for line in batch.submittable_lines:
+        codes[line.procedure_code] = codes.get(line.procedure_code, 0) + 1
+    summary = " · ".join(f"{c} ×{n}" for c, n in sorted(codes.items()))
+
+    blocked = [l for l in batch.lines if not l.submittable]
+    blocked_html = ""
+    if blocked:
+        rows = "".join(
+            f"<tr><td class=mono>{e(l.student_ref)}</td>"
+            f"<td class=mono>{e(l.procedure_code)}</td>"
+            f"<td>{e(l.bundling_conflict[:100])}</td></tr>" for l in blocked)
+        blocked_html = (f"<div class=scroll style='margin-top:10px'><table>"
+                        f"<tr><th>student</th><th>code</th>"
+                        f"<th>withheld because</th></tr>{rows}</table></div>")
+
+    export = ("<form method=get action='/claims/export.csv' style='margin-top:12px'>"
+              "<button class=btn>Export CSV for the billing vendor</button></form>"
+              if "claim.export" in who.scopes else
+              "<p class=muted>Export needs the business or coordinator role.</p>")
+
+    return (f"<h2>Claim batch</h2>"
+            f"<p class=sub>Coded and bundling-checked. Nothing is submitted from "
+            f"here — the export is what a billing vendor ingests. <b>{e(summary)}</b></p>"
+            f"<div class=tiles style='margin-bottom:12px'>"
+            f"<div class=tile><div class=n>{len(batch.submittable_lines)}</div>"
+            f"<div class=l>submittable lines</div></div>"
+            f"<div class=tile><div class=n>{batch.total_units}</div>"
+            f"<div class=l>billable units</div></div>"
+            f"<div class='tile {'hot' if blocked else ''}'>"
+            f"<div class=n>{len(blocked)}</div><div class=l>withheld, NCCI</div></div>"
+            f"</div>{blocked_html}{export}")
+
+
 def _audit_block(who) -> str:
     """The audit trail is the record of what agents did. Coordinators and admins
     only -- it names every student who moved."""
@@ -474,6 +546,7 @@ unattended agent, not a person.</p>
 {_caseload_block(who, cases)}
 {_outbox_block(who)}
 {_claims_block(who)}
+{_claim_batch_block(who)}
 {_audit_block(who)}
 <h2>Family-facing media</h2>
 <div class=media><div class=card><h3>Evaluation timeline</h3>

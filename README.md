@@ -405,6 +405,40 @@ under-billed           billable=True
 
 That second line is the revenue half doing its job.
 
+### From readiness to a claim
+
+`src/hopscotch/claim.py` turns a session that passed readiness into something a
+billing system can ingest — coded, bundling-checked, batched, exported.
+
+Real codes: **92507** individual speech treatment, **92508** group, **97530**
+therapeutic activities, **90832** psychotherapy. An unmapped service raises
+rather than guessing, because a guessed procedure code is a false claim.
+
+**Modality follows the note, not the IEP.** The narrative reviewer is what
+notices a session note describing a *group* session against an IEP authorizing
+*individual* therapy — so the code follows what actually happened. 92508, not
+92507. That is the same check that blocks the claim when the mismatch is
+unexplained, reused to code it correctly when it is.
+
+**NCCI bundling is checked across the batch.** An SLP must not separately report
+97530 alongside 92507 — it is considered included. Billing both is a *recoupment*
+finding rather than a rejection at submission, so it has to be caught before
+export. The conflicted line is flagged and withheld, never silently dropped: a
+coordinator needs to see what was held back and why.
+
+Live, from the current caseload:
+
+```
+90832 ×4 · 92507 ×7 · 97530 ×3
+submittable lines  14      billable units  28      withheld, NCCI  0
+```
+
+**Export is not submission.** Direct filing needs provider enrollment, a trading
+partner agreement, EDI connectivity and test-to-production certification with
+the state — and most districts file through a billing vendor regardless. So the
+output is a clean coded CSV a vendor ingests. A malformed 837P would be worse
+than a good CSV.
+
 ### Still missing before this is a claiming product
 
 | | |

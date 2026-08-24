@@ -32,13 +32,16 @@ class Role(str, Enum):
 # Human roles reuse the agent scope vocabulary deliberately.
 ROLE_SCOPES: dict[Role, frozenset[str]] = {
     Role.COORDINATOR: frozenset({
-        "case.read", "case.write", "notice.approve", "claim.read"}),
+        "case.read", "case.write", "notice.approve", "claim.read",
+        "claim.export"}),
     Role.PSYCHOLOGIST: frozenset({"case.read_full", "draft.write"}),
     Role.LIAISON: frozenset({"case.read_redacted", "notify.send"}),
-    Role.BUSINESS: frozenset({"claim.read"}),
+    # The business office is the one that actually files. It gets export and
+    # nothing that touches a case.
+    Role.BUSINESS: frozenset({"claim.read", "claim.export"}),
     Role.ADMIN: frozenset({
         "case.read", "case.write", "notice.approve", "claim.read",
-        "registry.publish"}),
+        "claim.export", "registry.publish"}),
 }
 
 
