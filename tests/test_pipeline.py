@@ -158,6 +158,9 @@ def test_caseload_lines_lead_with_urgency():
 def test_missing_brief_is_absent_not_invented(monkeypatch):
     """The dashboard shows an honest gap rather than a fabricated summary."""
     import hopscotch.brief as brief_mod
+    from hopscotch.auth import Principal, Role
+    from hopscotch.dashboard.app import _brief_block
+
     monkeypatch.setattr(brief_mod, "latest", lambda: None)
-    from hopscotch.dashboard.app import _brief_html
-    assert "No brief yet" in _brief_html()
+    who = Principal(email="c@d.org", role=Role.COORDINATOR)
+    assert "No brief yet" in _brief_block(who)

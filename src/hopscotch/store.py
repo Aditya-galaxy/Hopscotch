@@ -58,21 +58,28 @@ class FirestoreLedger:
             return False
 
 
-def audit(event: str, *, effect_id: str, student_ref: str | None = None, **fields) -> None:
-    """Append-only, with a deterministic id so a replay overwrites rather than duplicates.
+def audit(event: str, *, effect_id: str, student_ref: str | None = None, **fields) -> bool:
+    """Append-only. Returns False if this exact effect was already recorded.
 
-    A district lawyer reconstructs decisions from this collection. An audit
-    trail that double-writes on retry is worse than none -- it makes the record
-    look falsified precisely when someone is checking it.
+    Uses create(), not set(). A deterministic document id gives idempotency
+    either way, but set() would let a later write OVERWRITE an existing audit
+    row -- and a mutable audit trail is not an audit trail. A district lawyer
+    reconstructs decisions from this collection; if it can be rewritten, it
+    proves nothing.
+
+    AlreadyExists is the idempotency signal, not an error.
     """
-    _client().collection(settings.audit_collection).document(effect_id).set(
-        {
+    ref = _client().collection(settings.audit_collection).document(effect_id)
+    try:
+        ref.create({
             "event": event,
             "student_ref": student_ref,
             "at": datetime.now(timezone.utc).isoformat(),
             **fields,
-        }
-    )
+        })
+        return True
+    except gexc.AlreadyExists:
+        return False
 
 
 def deliveries_for(student_ref: str) -> list[dict]:

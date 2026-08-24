@@ -107,3 +107,42 @@ def test_sensitivity_ceilings_match_the_privilege_inversion():
     assert max_sensitivity(BY_NAME["casework-agent"]) is Sensitivity.CLINICAL
     assert max_sensitivity(BY_NAME["family-agent"]) is Sensitivity.DIRECTORY
     assert max_sensitivity(BY_NAME["clock-agent"]) is Sensitivity.ADMINISTRATIVE
+
+
+# --- one classification for agents and humans --------------------------------
+
+def test_a_human_liaison_sees_exactly_what_family_agent_sees():
+    """The projection is keyed on SCOPES, not on whether the caller is a
+    process. A liaison signing in to the dashboard and family-agent calling a
+    tool are asking the same question of the same table, so they must get the
+    same answer -- otherwise the browser becomes the way around the boundary.
+    """
+    from hopscotch.auth import Principal, Role
+    from hopscotch.gateway import project_for_scopes
+
+    case = a_case()
+    agent_view = project(BY_NAME["family-agent"], case)
+    human_view = project_for_scopes(
+        Principal(email="liaison@d.org", role=Role.LIAISON).scopes, case)
+
+    assert CLINICAL_TEXT not in str(human_view)
+    assert set(human_view) == set(agent_view)
+
+
+def test_a_business_officer_gets_no_clinical_detail():
+    from hopscotch.auth import Principal, Role
+    from hopscotch.gateway import project_for_scopes
+
+    view = project_for_scopes(
+        Principal(email="cfo@d.org", role=Role.BUSINESS).scopes, a_case())
+    assert CLINICAL_TEXT not in str(view)
+    assert "referral_reason" not in view.get("consent", {})
+
+
+def test_psychologist_sees_the_narrative_a_liaison_cannot():
+    from hopscotch.auth import Principal, Role
+    from hopscotch.gateway import project_for_scopes
+
+    psych = project_for_scopes(
+        Principal(email="p@d.org", role=Role.PSYCHOLOGIST).scopes, a_case())
+    assert psych["consent"]["referral_reason"] == CLINICAL_TEXT

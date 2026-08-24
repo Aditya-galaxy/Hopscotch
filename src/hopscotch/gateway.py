@@ -62,22 +62,33 @@ class Denial:
     reason: str
 
 
-def max_sensitivity(card: AgentCard) -> Sensitivity:
-    """The most sensitive tier this agent's scopes permit."""
-    tiers = [SCOPE_SENSITIVITY[s] for s in card.scopes if s in SCOPE_SENSITIVITY]
+def ceiling_for(scopes) -> Sensitivity:
+    """The most sensitive tier these scopes permit.
+
+    Takes scopes rather than a card, so the SAME classification governs an
+    agent and a person. A liaison signing in to the dashboard and family-agent
+    calling a tool get identical answers, because they are asking the same
+    question of the same table.
+    """
+    tiers = [SCOPE_SENSITIVITY[s] for s in scopes if s in SCOPE_SENSITIVITY]
     if not tiers:
         return Sensitivity.DIRECTORY
     return max(tiers, key=lambda t: _RANK[t])
 
 
-def project(card: AgentCard, case: Case) -> dict:
-    """Return only the fields this identity may see.
+def max_sensitivity(card: AgentCard) -> Sensitivity:
+    """The most sensitive tier this agent's scopes permit."""
+    return ceiling_for(card.scopes)
+
+
+def project_for_scopes(scopes, case: Case) -> dict:
+    """Return only the fields these scopes may see.
 
     The clinical narrative lives inside `consent.referral_reason`, so the
     consent block is walked rather than passed through whole -- a nested field
     is exactly where a coarse allow-list leaks.
     """
-    ceiling = _RANK[max_sensitivity(card)]
+    ceiling = _RANK[ceiling_for(scopes)]
     raw = case.model_dump(mode="json")
     out: dict = {}
     for key, value in raw.items():
@@ -89,6 +100,11 @@ def project(card: AgentCard, case: Case) -> dict:
                      if _RANK[FIELD_SENSITIVITY.get(k, Sensitivity.CLINICAL)] <= ceiling}
         out[key] = value
     return out
+
+
+def project(card: AgentCard, case: Case) -> dict:
+    """Agent-facing projection. Delegates, so agents and people cannot drift."""
+    return project_for_scopes(card.scopes, case)
 
 
 class Gateway:

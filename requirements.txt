@@ -20,3 +20,5 @@ google-cloud-texttospeech
 # Coordinator dashboard (Cloud Run service; the tick job does not use these)
 fastapi
 uvicorn[standard]
+# Imported directly for BaseHTTPMiddleware (security headers).
+starlette
