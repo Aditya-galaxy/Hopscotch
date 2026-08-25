@@ -1,5 +1,8 @@
 .PHONY: help install test corpus tick probe rename
-PY := python3
+# Prefer the project venv when it exists, so `make test` and `make scan` work
+# without remembering to activate it first. Falls back to the system
+# interpreter, which is what `make install` bootstraps from.
+PY := $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
 help:
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n",$$1,$$2}'
@@ -19,7 +22,7 @@ corpora:  ## fetch the benign skill corpus used as a false-positive control
 
 scan:  ## scan a skill folder: make scan SKILL=data/replicas/credential-helper
 	@test -n "$(SKILL)" || (echo "usage: make scan SKILL=<path> [ARGS=--structural-only]"; exit 1)
-	$(PY) -m hopscotch.skills.cli $(SKILL) $(ARGS)
+	PYTHONPATH=src $(PY) -m hopscotch.skills.cli $(SKILL) $(ARGS)
 
 tick:  ## run one tick locally against Firestore
 	PYTHONPATH=src $(PY) -m hopscotch.jobs.tick
