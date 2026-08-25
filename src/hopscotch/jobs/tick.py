@@ -23,7 +23,9 @@ from ..deadlines import (
 )
 from ..brief import brief_effect
 from ..claims import MAX_ASSESSMENTS_PER_TICK, assess_pending
-from ..pipeline import MAX_NOTICES_PER_TICK, PipelineFailed, draft_and_send
+from ..pipeline import (
+    MAX_NOTICES_PER_TICK, PipelineFailed, draft_and_send, process_inbox,
+)
 from ..idempotency import Ledger, escalation_effect, run_key_for
 from ..schemas import DeadlineComputation, WorkerResult
 from ..telemetry import span
@@ -55,7 +57,8 @@ def run_tick(
 
     counts = {"scanned": 0, "escalated": 0, "suppressed": 0, "notices_sent": 0,
               "needs_intake": 0, "dead_lettered": 0, "errors": 0,
-              "claims_assessed": 0, "claims_billable": 0, "notices_delivered": 0}
+              "claims_assessed": 0, "claims_billable": 0, "notices_delivered": 0,
+              "documents_read": 0, "documents_blocked": 0}
     drafted = 0
 
     with span("job.tick", day=today.isoformat(), run_key=run_key) as s:
@@ -150,6 +153,15 @@ def run_tick(
                         case.escalations_sent.append(retired)
 
             store.upsert_case(case)
+
+        # Intake first: a document dropped a minute ago should become a case
+        # in this pass, not the next one.
+        try:
+            intake = process_inbox(store=store)
+            counts["documents_read"] = intake["read"]
+            counts["documents_blocked"] = intake["blocked"] + intake["failed"]
+        except Exception as e:
+            log.warning("intake pass skipped: %s: %s", type(e).__name__, str(e)[:160])
 
         # Deliver anything a human approved since the last tick. The fleet
         # never approves its own notices.

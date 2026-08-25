@@ -5,7 +5,12 @@ google-adk
 # and without it memory writes fail at runtime rather than at import.
 google-cloud-aiplatform
 google-genai
-google-cloud-firestore
+# Pinned deliberately. An unpinned resolve pulled a newer client into the
+# container that percent-encodes an explicit database id into the resource
+# path, so "(default)" arrived as %28default%29 and every Firestore call failed
+# with InvalidArgument -- while the same code worked locally on 2.28.1. The
+# floor keeps local and container on the same behaviour.
+google-cloud-firestore==2.28.1
 # Imported directly for ClientOptions (regional endpoints, quota project).
 google-api-core
 google-cloud-pubsub

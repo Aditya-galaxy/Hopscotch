@@ -143,3 +143,65 @@ def draft_and_send(
             audio_path=str(audio) if audio else None,
             redacted=packet.redaction_applied,
         )
+
+
+# ---------------------------------------------------------------------------
+# Intake: documents a human dropped, processed unattended
+# ---------------------------------------------------------------------------
+
+MAX_INTAKE_PER_TICK = 5
+
+
+def process_inbox(*, store=None, limit: int = MAX_INTAKE_PER_TICK) -> dict:
+    """Screen and extract every document waiting in the inbox.
+
+    This is the ingestion path. A coordinator pastes or uploads a consent form
+    on the dashboard; the fleet screens it through Model Armor, extracts it, and
+    opens a case with a computed deadline. The dashboard never touches a model.
+
+    A document that Model Armor rejects is marked `blocked` and never reaches an
+    extractor. One the extractor cannot read becomes a case with no consent date,
+    which the clock refuses to start -- and which a coordinator then corrects by
+    reading the paper form.
+    """
+    from . import store as default_store
+    from .agents.intake import screened_extract
+    from .deadlines import recompute
+    from .schemas import Case, CaseStage
+
+    store = store or default_store
+    counts = {"read": 0, "blocked": 0, "unreadable": 0, "failed": 0}
+
+    for row in store.pending_documents(limit=limit):
+        doc_id, text = row["_id"], row.get("text", "")
+        try:
+            consent = screened_extract(text, source=row.get("source", "upload"))
+        except PermissionError as e:
+            store.resolve_document(doc_id, status="blocked", detail=str(e))
+            counts["blocked"] += 1
+            log.warning("intake blocked %s: %s", doc_id, str(e)[:160])
+            continue
+        except Exception as e:
+            store.resolve_document(doc_id, status="failed", detail=f"{type(e).__name__}: {e}")
+            counts["failed"] += 1
+            continue
+
+        ref = consent.student_ref or f"stu-{doc_id[:8]}"
+        consent.student_ref = ref
+        case = Case(student_ref=ref, school_code=consent.school_code or "unknown",
+                    jurisdiction=consent.jurisdiction or "US_FEDERAL",
+                    stage=CaseStage.CONSENT_RECEIVED, consent=consent)
+        try:
+            case.deadline = recompute(case)
+            counts["read"] += 1
+            status = "read"
+        except Exception:
+            # No usable consent date. The case still opens -- it needs a human,
+            # and burying it in the inbox would hide that.
+            counts["unreadable"] += 1
+            status = "needs_human"
+
+        store.upsert_case(case)
+        store.resolve_document(doc_id, status=status,
+                               detail=f"confidence {consent.confidence}", student_ref=ref)
+    return counts

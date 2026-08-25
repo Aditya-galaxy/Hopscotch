@@ -78,8 +78,9 @@ def load_cards(directory: Path | None = None) -> list[AgentCard]:
 
 def _client():
     from google.cloud import firestore
-    return firestore.Client(project=settings.project_id or None,
-                            database=settings.firestore_db)
+
+    from .store import client_kwargs
+    return firestore.Client(**client_kwargs())
 
 
 def publish(card: AgentCard) -> str:

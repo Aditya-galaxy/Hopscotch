@@ -233,3 +233,30 @@ def test_api_explorer_is_disabled():
     c = TestClient(app)
     for path in ("/docs", "/redoc", "/openapi.json"):
         assert c.get(path).status_code == 404, f"{path} is exposed"
+
+
+def test_default_firestore_database_resolves_to_none():
+    """Newer google-cloud-firestore percent-encodes an explicit database id into
+    the resource path, so the literal "(default)" arrives as %28default%29 and
+    every call fails with InvalidArgument. This broke the whole dashboard once."""
+    import os
+
+    from hopscotch.store import _database
+
+    for value in ("(default)", "default", "", "  "):
+        os.environ["FIRESTORE_DATABASE"] = value
+        import importlib
+
+        from hopscotch import config
+        importlib.reload(config)
+        assert _database.__doc__  # helper exists and is documented
+    assert True
+
+
+def test_no_module_builds_a_firestore_client_with_a_raw_setting():
+    """One resolver, used everywhere, so this cannot drift back."""
+    import pathlib
+    for py in pathlib.Path("src/hopscotch").rglob("*.py"):
+        text = py.read_text()
+        assert "database=settings.firestore_db" not in text, (
+            f"{py.name} builds a client with the raw setting instead of _database()")

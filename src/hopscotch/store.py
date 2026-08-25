@@ -12,10 +12,36 @@ from .idempotency import deadletter_effect
 from .schemas import Case, WorkerResult
 
 
+def _database() -> str | None:
+    """Firestore's default database must be passed as None, not "(default)".
+
+    Newer google-cloud-firestore percent-encodes an explicit database id into
+    the resource path, so the literal string arrives as %28default%29 and every
+    call fails with InvalidArgument. Passing None uses the default database and
+    works on every version.
+    """
+    db = (settings.firestore_db or "").strip()
+    return None if db in ("", "(default)", "default") else db
+
+
+def client_kwargs() -> dict:
+    """Arguments for a Firestore client, with `database` OMITTED by default.
+
+    Passing database=None is not equivalent to leaving it out: some client
+    versions substitute the literal "(default)" and percent-encode it into the
+    resource path, so every call fails with `Invalid database id %28default%29`
+    -- while the same code works on an older client locally. Omitting the
+    argument is the only form that behaves identically across versions.
+    """
+    kwargs: dict = {"project": settings.project_id or None}
+    db = _database()
+    if db:
+        kwargs["database"] = db
+    return kwargs
+
+
 def _client() -> firestore.Client:
-    return firestore.Client(
-        project=settings.project_id or None, database=settings.firestore_db
-    )
+    return firestore.Client(**client_kwargs())
 
 
 def upsert_case(case: Case) -> None:
@@ -146,6 +172,48 @@ def apply_correction(student_ref: str, correction) -> None:
           student_ref=student_ref, field=correction.field,
           value=correction.value.isoformat(), reason=correction.reason,
           by=correction.by, computed_was=correction.computed_was)
+
+
+# --- inbox: documents dropped by a human, processed by the fleet -------------
+
+def queue_document(*, text: str, source: str, dropped_by: str) -> str:
+    """Accept a consent document for intake.
+
+    The dashboard has no model access by design, so it does not extract here --
+    it records the document and the tick picks it up. That keeps the coordinator
+    surface unable to call Vertex even if it is compromised, and it matches how
+    the rest of the system works: a human drops something, the fleet acts on it
+    unattended.
+    """
+    from .idempotency import effect_id
+
+    doc_id = effect_id("inbox", source, text[:2000])
+    _client().collection("inbox").document(doc_id).set({
+        "text": text, "source": source, "dropped_by": dropped_by,
+        "status": "pending",
+        "at": datetime.now(timezone.utc).isoformat(),
+    })
+    return doc_id
+
+
+def pending_documents(limit: int = 10) -> list[dict]:
+    q = (_client().collection("inbox")
+         .where(filter=firestore.FieldFilter("status", "==", "pending")).limit(limit))
+    return [d.to_dict() | {"_id": d.id} for d in q.stream()]
+
+
+def resolve_document(doc_id: str, *, status: str, detail: str = "",
+                     student_ref: str = "") -> None:
+    _client().collection("inbox").document(doc_id).update({
+        "status": status, "detail": detail[:400], "student_ref": student_ref,
+        "resolved_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+def inbox_recent(limit: int = 12) -> list[dict]:
+    rows = [d.to_dict() | {"_id": d.id}
+            for d in _client().collection("inbox").limit(60).stream()]
+    return sorted(rows, key=lambda r: r.get("at", ""), reverse=True)[:limit]
 
 
 # --- outbox -----------------------------------------------------------------

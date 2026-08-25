@@ -52,6 +52,7 @@ def gather(*, store=None, today: date | None = None) -> tuple[list[str], list[st
     """
     from . import store as default_store
     from .config import settings
+    from .store import client_kwargs
 
     store = store or default_store
     today = today or date.today()
@@ -63,8 +64,7 @@ def gather(*, store=None, today: date | None = None) -> tuple[list[str], list[st
     events: list[str] = []
     try:
         from google.cloud import firestore
-        db = firestore.Client(project=settings.project_id or None,
-                              database=settings.firestore_db)
+        db = firestore.Client(**client_kwargs())
         rows = [d.to_dict() for d in
                 db.collection(settings.audit_collection).limit(200).stream()]
         rows.sort(key=lambda r: r.get("at", ""), reverse=True)
@@ -170,8 +170,7 @@ def save(brief: DailyBrief) -> None:
     from google.cloud import firestore
 
     from .config import settings
-    db = firestore.Client(project=settings.project_id or None,
-                          database=settings.firestore_db)
+    db = firestore.Client(**client_kwargs())
     db.collection("briefs").document(brief.brief_date).set(
         brief.model_dump(mode="json"))
 
@@ -182,8 +181,7 @@ def latest() -> DailyBrief | None:
 
     from .config import settings
     try:
-        db = firestore.Client(project=settings.project_id or None,
-                              database=settings.firestore_db)
+        db = firestore.Client(**client_kwargs())
         rows = [d.to_dict() for d in db.collection("briefs").limit(30).stream()]
         if not rows:
             return None

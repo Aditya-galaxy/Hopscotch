@@ -194,9 +194,9 @@ def current_batch(*, limit: int = 200) -> ClaimBatch:
     from google.cloud import firestore
 
     from .config import settings
+    from .store import client_kwargs
 
-    db = firestore.Client(project=settings.project_id or None,
-                          database=settings.firestore_db)
+    db = firestore.Client(**client_kwargs())
     ready = {d.id: d.to_dict()
              for d in db.collection("claim_readiness").limit(limit).stream()}
 

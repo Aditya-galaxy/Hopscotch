@@ -482,8 +482,8 @@ def _audit_block(who) -> str:
         from google.cloud import firestore
 
         from ..config import settings
-        db = firestore.Client(project=settings.project_id or None,
-                              database=settings.firestore_db)
+        from ..store import client_kwargs
+        db = firestore.Client(**client_kwargs())
         rows_raw = [d.to_dict() for d in
                     db.collection(settings.audit_collection).limit(200).stream()]
         rows_raw.sort(key=lambda r: r.get("at", ""), reverse=True)
