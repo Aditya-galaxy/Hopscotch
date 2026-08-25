@@ -177,33 +177,67 @@ def recompute(case: Case, *, today: date | None = None) -> DeadlineComputation:
         return DeadlineComputation(
             student_ref=case.student_ref, jurisdiction=case.jurisdiction,
             rule_label=f"human override by {override.by}",
-            clock_started_on=(case.consent.consent_signed_on
-                              if case.consent and case.consent.consent_signed_on
-                              else override.value),
+            clock_started_on=(_clock_start(case) or override.value),
             due_on=override.value,
             days_remaining=(override.value - today).days, excluded_days=0,
             explanation=(f"Overridden by {override.by}: {override.reason}. "
                          f"Fleet had computed {override.computed_was or 'nothing'}."))
 
     # A corrected consent date restarts the clock from the right place.
+    received_correction = latest_correction(case, "consent_received_on")
     signed_correction = latest_correction(case, "consent_signed_on")
+    correction = received_correction or signed_correction
 
-    if case.consent is None and signed_correction is None:
+    if case.consent is None and correction is None:
         raise ValueError(f"{case.student_ref} has no consent event; clock not started")
-    if signed_correction is None and case.consent.consent_signed_on is None:
+
+    # 34 CFR 300.301(c)(1)(i) runs the 60 days from the date the AGENCY RECEIVES
+    # consent, not the date the parent signed. A form signed on the 1st and
+    # delivered on the 10th is due 60 days from the 10th, so keying off the
+    # signature would compute a deadline that is not the one the district is
+    # held to. Receipt is therefore the trigger.
+    #
+    # The signature date is kept as a fallback rather than dropped, because a
+    # signature necessarily precedes receipt: using it yields a clock that is
+    # equal or EARLIER, which errs toward acting sooner. Erring the other way
+    # would silently buy the district days it does not have.
+    if correction is not None:
+        started, basis = correction.value, "correction"
+    elif case.consent.received_on is not None:
+        started, basis = case.consent.received_on, "receipt"
+    elif case.consent.consent_signed_on is not None:
+        started, basis = case.consent.consent_signed_on, "signature"
+    else:
         raise ClockCannotStart(
-            f"{case.student_ref}: consent signature date is illegible. A "
-            "statutory clock started from a guessed date is worse than one a "
-            "human is asked to confirm.")
-    started = (signed_correction.value if signed_correction
-               else case.consent.consent_signed_on)
+            f"{case.student_ref}: neither the date consent was received nor the "
+            "date it was signed could be read. A statutory clock started from a "
+            "guessed date is worse than one a human is asked to confirm.")
+
     comp = compute_deadline(
         student_ref=case.student_ref, jurisdiction_key=case.jurisdiction,
         clock_started_on=started, calendar=demo_calendar(), today=today)
-    if signed_correction is not None:
-        comp.explanation += (f" Consent date supplied by {signed_correction.by}: "
-                             f"{signed_correction.reason}.")
+    if basis == "receipt":
+        comp.explanation += " Clock runs from the date consent was received."
+    elif basis == "signature":
+        comp.explanation += (
+            " No receipt date was legible, so the clock runs from the signature "
+            "date instead -- earlier than receipt, so the deadline is tighter "
+            "than the statute requires rather than looser. Confirm the receipt "
+            "date to correct it.")
+    if correction is not None:
+        comp.explanation += (f" Consent date supplied by {correction.by}: "
+                             f"{correction.reason}.")
     return comp
+
+
+def _clock_start(case: Case) -> date | None:
+    """The date the statutory clock runs from: receipt, else signature.
+
+    See recompute() for why receipt and not signature.
+    """
+    if case.consent is None:
+        return None
+    return case.consent.received_on or case.consent.consent_signed_on
 
 
 def pending_escalation(case: Case, comp: DeadlineComputation) -> int | None:

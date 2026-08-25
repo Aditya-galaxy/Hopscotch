@@ -57,10 +57,16 @@ def test_the_computed_value_survives_beside_the_override():
 
 
 def test_supplying_a_missing_consent_date_unblocks_the_case():
-    """The illegible-signature path. intake returns null, the clock refuses to
-    start, and a human reading the actual form is how it gets unstuck."""
+    """The illegible-form path. intake returns null for BOTH dates, the clock
+    refuses to start, and a human reading the paper form is how it gets unstuck.
+
+    Both must be cleared: the clock runs from receipt and only falls back to the
+    signature, so a form with either date legible is one the fleet can still
+    compute from.
+    """
     case = a_case()
     case.consent.consent_signed_on = None
+    case.consent.received_on = None
     with pytest.raises(ClockCannotStart):
         recompute(case, today=date(2026, 10, 1))
 
@@ -116,3 +122,31 @@ def test_only_case_write_may_correct():
     for role in (Role.LIAISON, Role.PSYCHOLOGIST, Role.BUSINESS):
         with pytest.raises(NotPermitted):
             Principal(email="x@d.org", role=role).require("case.write")
+
+
+def test_the_clock_runs_from_receipt_not_signature():
+    """34 CFR 300.301(c)(1)(i) starts the 60 days when the AGENCY RECEIVES
+    consent. A form signed on the 1st and delivered on the 10th is due 60 days
+    from the 10th; keying off the signature computes a deadline the district is
+    not actually held to.
+    """
+    case = a_case()
+    case.consent.consent_signed_on = date(2026, 9, 1)
+    case.consent.received_on = date(2026, 9, 10)
+    out = recompute(case, today=date(2026, 10, 1))
+    assert out.clock_started_on == date(2026, 9, 10)
+    assert "received" in out.explanation
+
+
+def test_signature_is_the_fallback_and_says_so():
+    """With no legible receipt date the signature is used instead. A signature
+    necessarily precedes receipt, so the resulting deadline is tighter than the
+    statute requires rather than looser -- the safe direction to be wrong in.
+    """
+    case = a_case()
+    case.consent.consent_signed_on = date(2026, 9, 1)
+    case.consent.received_on = None
+    out = recompute(case, today=date(2026, 10, 1))
+    assert out.clock_started_on == date(2026, 9, 1)
+    assert "signature" in out.explanation
+    assert "tighter" in out.explanation

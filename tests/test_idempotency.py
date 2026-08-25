@@ -238,6 +238,7 @@ def test_illegible_date_does_not_start_the_clock():
 
     case = a_case()
     case.consent.consent_signed_on = None
+    case.consent.received_on = None
     with pytest.raises(ClockCannotStart):
         recompute(case, today=date(2026, 10, 25))
 
