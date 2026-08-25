@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from ..config import PROJECT_NAME
 from .security import (
+    demo_writes_enabled,
     SecurityHeaders, read_only, require_same_origin, require_writable,
 )
 
@@ -36,6 +37,15 @@ app.add_middleware(SecurityHeaders)
 e = html.escape
 
 CSS = """
+.flash{background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent);
+border-radius:4px;padding:9px 13px;font-size:.88rem;margin:0 0 14px}
+.drop{display:flex;flex-direction:column;gap:8px;max-width:780px;margin-bottom:10px}
+.stack{display:flex;flex-direction:column;gap:6px;max-width:560px;margin-bottom:8px}
+.row{display:flex;gap:6px;align-items:center}
+.drop textarea,.stack input,.stack textarea{font:inherit;font-size:.85rem;padding:7px 9px;
+border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+color:var(--ink);width:100%}
+.back{font-size:.85rem;display:inline-block;margin-bottom:10px}
 :root{--paper:#F5F4F0;--surface:#fff;--sunk:#EFEEE9;--ink:#1A1F1C;--soft:#4A5049;
 --muted:#767C74;--rule:#DBDCD5;--accent:#1F5C3D;--accent-soft:#E3EDE7;
 --risk:#A03A22;--risk-soft:#F5E5E0;--warn:#8A6A1F;--warn-soft:#F5EEDD}
@@ -159,6 +169,103 @@ def reject_notice(item_id: str, request: Request, who=Depends(principal)):
     return RedirectResponse("/", status_code=303)
 
 
+@app.post("/intake")
+def drop_document(request: Request, text: str = Form(...),
+                  source: str = Form("upload"), who=Depends(principal)):
+    """Accept a consent document. Extraction happens on the fleet, not here.
+
+    This surface has no model access by design, so it records the document and
+    the tick screens and reads it. A compromised dashboard cannot call Vertex.
+    """
+    require_writable(); require_same_origin(request); _needs(who, "case.write")
+    from .. import store
+
+    if len(text.strip()) < 40:
+        return RedirectResponse("/?msg=That+does+not+look+like+a+consent+form.",
+                                status_code=303)
+    store.queue_document(text=text.strip(), source=(source or "upload")[:60],
+                         dropped_by=who.email)
+    return RedirectResponse(
+        "/?msg=Queued.+The+fleet+screens+and+reads+it+on+the+next+tick.",
+        status_code=303)
+
+
+@app.post("/case/{student_ref}/deliver")
+def log_delivery(student_ref: str, request: Request, service: str = Form(...),
+                 minutes: int = Form(...), units: int = Form(...),
+                 note: str = Form(...), npi: str = Form(...),
+                 provider_type: str = Form(...), who=Depends(principal)):
+    """Log a delivered session. Claim readiness assesses it on the next tick."""
+    from datetime import date as _date
+
+    from google.cloud import firestore
+
+    from ..config import settings
+    from ..schemas import IEPService, ServiceDelivery
+    from ..store import client_kwargs
+
+    require_writable(); require_same_origin(request); _needs(who, "case.write")
+
+    today = _date.today()
+    delivery = ServiceDelivery(
+        student_ref=student_ref, goal_ref="G-3", service_date=today,
+        minutes=minutes, units_billed=units, note=note.strip(),
+        provider_npi=npi.strip(), provider_type=provider_type.strip(),
+        provider_license_expires=_date(today.year + 1, 12, 31))
+    iep = IEPService(goal_ref="G-3", service=service.strip(),
+                     minutes_per_session=minutes, sessions_per_week=2,
+                     provider_type=provider_type.strip(),
+                     starts_on=_date(today.year, 1, 1),
+                     ends_on=_date(today.year + 1, 6, 30))
+    firestore.Client(**client_kwargs()).collection("deliveries").document(
+        f"{student_ref}-{today}-G3-ui").set(
+        delivery.model_dump(mode="json") | {
+            "iep": iep.model_dump(mode="json"),
+            "medicaid_eligible": True, "assessed": False})
+    return RedirectResponse(
+        f"/case/{student_ref}?msg=Session+logged.+Readiness+runs+on+the+next+tick.",
+        status_code=303)
+
+
+@app.post("/run/tick")
+def run_tick_now(request: Request, who=Depends(principal)):
+    """Run a tick now instead of waiting for the hour.
+
+    Triggers the Cloud Run JOB rather than running in-process. This service runs
+    as an identity with no Vertex or Model Armor access on purpose; executing
+    the fleet here would force those permissions back onto it and undo the
+    split. The job has them; this only asks it to start.
+    """
+    import os
+
+    from ..config import settings
+
+    require_writable(); require_same_origin(request); _needs(who, "case.write")
+
+    project = settings.project_id
+    region = os.environ.get("MODEL_ARMOR_LOCATION", "us-central1")
+    job = os.environ.get("TICK_JOB_NAME", "agentx-tick")
+    try:
+        import google.auth
+        from google.auth.transport.requests import AuthorizedSession
+
+        creds, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"])
+        url = (f"https://run.googleapis.com/v2/projects/{project}/locations/"
+               f"{region}/jobs/{job}:run")
+        resp = AuthorizedSession(creds).post(url, timeout=30)
+        if resp.status_code >= 300:
+            return RedirectResponse(
+                f"/?msg=Could+not+start+the+tick+({resp.status_code}).",
+                status_code=303)
+    except Exception as exc:
+        return RedirectResponse(f"/?msg=Could+not+start+the+tick:+{type(exc).__name__}",
+                                status_code=303)
+    return RedirectResponse(
+        "/?msg=Tick+started.+Reload+in+a+moment+to+see+what+it+did.",
+        status_code=303)
+
+
 @app.get("/claims/export.csv")
 def export_claims(who=Depends(principal)):
     """The batch a billing vendor ingests. Export is not submission."""
@@ -251,6 +358,10 @@ def healthz() -> dict:
 
 # --- rendering --------------------------------------------------------------
 
+def _flash(msg: str) -> str:
+    return f"<div class=flash>{e(msg[:200])}</div>" if msg else ""
+
+
 def _pill(days: int | None) -> str:
     if days is None:
         return '<span class="pill warn">needs intake</span>'
@@ -340,7 +451,8 @@ def _caseload_block(who, cases) -> str:
                    f"<button class='btn ghost'>{label}</button></form>")
         flag = ('<span class="pill warn" title="human override">corrected</span> '
                 if c["corrected"] else "")
-        rows += (f"<tr><td class=mono>{e(c['ref'])}</td><td class=mono>{e(c['school'])}</td>"
+        rows += (f"<tr><td class=mono><a href='/case/{e(c['ref'])}'>{e(c['ref'])}</a></td>"
+                 f"<td class=mono>{e(c['school'])}</td>"
                  f"<td class=mono>{e(c['jur'])}</td>"
                  f"<td class=mono>{flag}{e(c['due'])}</td>"
                  f"<td>{_pill(c['days'])}</td><td class=mono>{e(c['sent'])}</td>"
@@ -419,6 +531,53 @@ def _claims_block(who) -> str:
             f"<div class=n>{c['underbilled_sessions']}</div><div class=l>under-billed</div></div>"
             f"</div><div class=scroll><table><tr><th>student</th><th>requirement</th>"
             f"<th>why</th></tr>{rows}</table></div>")
+
+
+def _intake_block(who) -> str:
+    """Drop a consent form. The fleet reads it; this page never calls a model."""
+    if "case.write" not in who.scopes:
+        return ""
+    from .. import store
+
+    rows = ""
+    try:
+        for r in store.inbox_recent(limit=6):
+            status = r.get("status", "pending")
+            cls = {"blocked": "hot", "failed": "hot", "needs_human": "warn",
+                   "pending": "warn"}.get(status, "ok")
+            ref = r.get("student_ref") or ""
+            link = f"<a href='/case/{e(ref)}'>{e(ref)}</a>" if ref else "—"
+            rows += (f"<tr><td class=mono>{e((r.get('at') or '')[:16])}</td>"
+                     f"<td><span class='pill {cls}'>{e(status)}</span></td>"
+                     f"<td class=mono>{link}</td>"
+                     f"<td>{e((r.get('detail') or '')[:70])}</td></tr>")
+    except Exception:
+        pass
+    rows = rows or "<tr><td colspan=4 class=empty>Nothing dropped yet.</td></tr>"
+
+    form = ""
+    if not read_only():
+        form = (
+            "<form method=post action='/intake' class=drop>"
+            "<textarea name=text rows=6 required aria-label='consent document' "
+            "placeholder='PARENTAL CONSENT FOR INITIAL EVALUATION&#10;"
+            "Student ref: stu_0500&#10;School: EL-004&#10;"
+            "Parent signature date: 09/14/2026&#10;"
+            "Received by district: 09/16/2026&#10;"
+            "Reason: Teacher referral, written expression.'></textarea>"
+            "<span class=row><button class=btn>Queue for intake</button></span>"
+            "</form>"
+            "<form method=post action='/run/tick' class=row>"
+            "<button class='btn ghost'>Run a tick now</button></form>")
+
+    return ("<h2>Drop a consent form</h2>"
+            "<p class=sub>Paste it as it arrived — phone-photo OCR noise, "
+            "forwarded email, all of it. Model Armor screens it before any model "
+            "reads it, and this page has no model access: the fleet does the "
+            "reading.</p>"
+            f"{form}"
+            f"<div class=scroll><table><tr><th>dropped</th><th>status</th>"
+            f"<th>case</th><th>detail</th></tr>{rows}</table></div>")
 
 
 def _claim_batch_block(who) -> str:
@@ -501,6 +660,12 @@ def _audit_block(who) -> str:
 
 
 def _banner() -> str:
+    if demo_writes_enabled():
+        return ('<div class=banner><b>Local demo — writes enabled without '
+                'authentication.</b> DEMO_ALLOW_WRITES is set, so anyone who can '
+                'reach this can approve notices and correct deadlines. Correct '
+                'for a laptop during a recording; never for anything reachable '
+                'from the internet, which sets <b>REQUIRE_AUTH=true</b>.</div>')
     if not read_only():
         return ""
     return ('<div class=banner><b>Read-only public demo.</b> Authentication is '
@@ -509,8 +674,104 @@ def _banner() -> str:
             'default in code.</div>')
 
 
+@app.get("/case/{student_ref}", response_class=HTMLResponse)
+def case_detail(student_ref: str, msg: str = "", who=Depends(principal)) -> str:
+    """One case: how its deadline was reached, who overrode what, and exactly
+    which fields this identity is permitted to see."""
+    from .. import store
+    from ..gateway import project_for_scopes
+
+    _needs(who, "case.read" if "case.read" in who.scopes else "case.read_redacted")
+    case = store.get_case(student_ref)
+    if case is None:
+        raise HTTPException(404, "no such case")
+
+    view = project_for_scopes(who.scopes, case)
+    d = case.deadline
+
+    corrections = "".join(
+        f"<tr><td class=mono>{e(c.field)}</td><td class=mono>{e(str(c.value))}</td>"
+        f"<td>{e(c.reason)}</td><td class=mono>{e(c.by)}</td>"
+        f"<td class=mono>{e(c.computed_was or '—')}</td></tr>"
+        for c in case.corrections) or (
+        "<tr><td colspan=5 class=empty>No corrections. Everything here was "
+        "computed by the fleet.</td></tr>")
+
+    sessions = ""
+    for row in store.deliveries_for(student_ref)[:10]:
+        state = "assessed" if row.get("assessed") else "pending"
+        sessions += (f"<tr><td class=mono>{e(str(row.get('service_date')))}</td>"
+                     f"<td class=mono>{e(str(row.get('minutes')))}m / "
+                     f"{e(str(row.get('units_billed')))}u</td>"
+                     f"<td>{e((row.get('note') or '')[:70])}</td>"
+                     f"<td class=mono>{e(state)}</td></tr>")
+    sessions = sessions or "<tr><td colspan=4 class=empty>No sessions logged.</td></tr>"
+
+    log_form = ""
+    if "case.write" in who.scopes and not read_only():
+        log_form = (
+            f"<h3>Log a session</h3>"
+            f"<form method=post action='/case/{e(student_ref)}/deliver' class=stack>"
+            f"<input name=service value='speech-language therapy, individual' "
+            f"required aria-label='service'>"
+            f"<input name=provider_type value='speech-language pathologist' "
+            f"required aria-label='provider type'>"
+            f"<input name=npi value='1234567890' required aria-label='provider NPI'>"
+            f"<span class=row><input name=minutes type=number value=30 required "
+            f"aria-label='minutes'><input name=units type=number value=2 required "
+            f"aria-label='units'></span>"
+            f"<textarea name=note rows=2 required aria-label='session note'>"
+            f"Individual session. Targeted /r/ in structured phrases, 70% accuracy "
+            f"with minimal cueing.</textarea>"
+            f"<span class=row><button class=btn>Log session</button></span></form>")
+
+    projected = "".join(
+        f"<tr><td class=mono>{e(k)}</td><td class=mono>{e(str(v)[:80])}</td></tr>"
+        for k, v in sorted(view.items()))
+
+    return f"""<!doctype html><html lang=en><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=robots content="noindex,nofollow">
+<title>{e(student_ref)} — {PROJECT_NAME}</title><style>{CSS}</style>
+<body><div class=wrap>
+<a class=back href="/">&larr; caseload</a>
+{_banner()}
+{_flash(msg)}
+<header class=top>
+  <h1>{e(student_ref)}</h1>
+  <div class=whoami><b>{e(who.email)}</b><br>{e(who.role.value)}</div>
+</header>
+<p class=sub>{e(case.school_code)} · {e(case.jurisdiction)} · {e(case.stage.value)}</p>
+<div class=tiles>
+  <div class=tile><div class=n>{e(d.due_on.isoformat()) if d else '—'}</div>
+    <div class=l>due</div></div>
+  <div class="tile {'hot' if d and d.days_remaining < 0 else ''}">
+    <div class=n>{d.days_remaining if d else '—'}</div><div class=l>days left</div></div>
+  <div class=tile><div class=n>{len(case.escalations_sent)}</div>
+    <div class=l>notices sent</div></div>
+  <div class="tile {'warn' if case.corrections else ''}">
+    <div class=n>{len(case.corrections)}</div><div class=l>corrections</div></div>
+</div>
+<h2>How this deadline was reached</h2>
+<p class=sub>{e(d.explanation) if d else
+  'No clock. The consent date could not be read, so this case needs a human.'}</p>
+<h2>Corrections</h2>
+<div class=scroll><table><tr><th>field</th><th>set to</th><th>reason</th>
+<th>by</th><th>fleet had computed</th></tr>{corrections}</table></div>
+<h2>Sessions delivered</h2>
+<div class=scroll><table><tr><th>date</th><th>time</th><th>note</th>
+<th>claim</th></tr>{sessions}</table></div>
+{log_form}
+<h2>What this identity may see</h2>
+<p class=sub>Fields above your ceiling are <b>absent</b>, not blanked — the
+gateway never returns them, so they cannot leak from a page that never had them.</p>
+<div class=scroll><table><tr><th>field</th><th>value</th></tr>{projected}</table></div>
+<footer>{PROJECT_NAME} · agents on Cloud Run and Agent Engine · all data synthetic</footer>
+</div></body></html>"""
+
+
 @app.get("/", response_class=HTMLResponse)
-def index(who=Depends(principal)) -> str:
+def index(msg: str = "", who=Depends(principal)) -> str:
     try:
         cases = _cases_for(who)
     except Exception:
@@ -532,9 +793,11 @@ def index(who=Depends(principal)) -> str:
     {"clinical detail visible" if clinical else "clinical detail withheld"}</div>
 </header>
 {_banner()}
+{_flash(msg)}
 <p class=sub>{date.today().isoformat()} · every row below was written by an
 unattended agent, not a person.</p>
 {_brief_block(who)}
+{_intake_block(who)}
 <h2>At a glance</h2>
 <div class=tiles>
   <div class="tile {'hot' if overdue else ''}"><div class=n>{overdue}</div><div class=l>overdue</div></div>

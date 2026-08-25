@@ -49,9 +49,24 @@ def read_only() -> bool:
     Tied to authentication: if we cannot say WHO is acting, we must not let them
     act. That makes the public demo safe by construction rather than by
     remembering to lock each endpoint.
+
+    DEMO_ALLOW_WRITES is a deliberate, narrow escape hatch for recording a demo
+    on a local machine, where the operator IS the only caller. It only has any
+    effect when authentication is already off, it is never set on the deployed
+    service, and the page carries a louder banner while it is on -- so it cannot
+    be enabled quietly. Anything reachable from the internet should use
+    REQUIRE_AUTH=true instead.
     """
     from ..auth import auth_required
-    return not auth_required()
+
+    if auth_required():
+        return False
+    return os.environ.get("DEMO_ALLOW_WRITES", "").lower() != "true"
+
+
+def demo_writes_enabled() -> bool:
+    from ..auth import auth_required
+    return not auth_required() and not read_only()
 
 
 def require_writable() -> None:
