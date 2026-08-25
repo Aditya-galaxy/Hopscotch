@@ -251,6 +251,7 @@ def test_tick_counts_illegible_cases_instead_of_dead_lettering_them():
     """
     case = a_case()
     case.consent.consent_signed_on = None
+    case.consent.received_on = None
     store = FakeStore([case])
 
     counts = run_tick(today=date(2026, 10, 25), ledger=InMemoryLedger(), store=store)
@@ -259,3 +260,20 @@ def test_tick_counts_illegible_cases_instead_of_dead_lettering_them():
     assert counts["dead_lettered"] == 0
     assert counts["errors"] == 0
     assert store.dead_letters == []
+
+
+def test_a_case_the_fleet_can_now_compute_stops_being_needs_intake():
+    """The tick must not carry its own copy of the clock rule.
+
+    A form whose receipt date is legible but whose signature is not can be
+    computed -- and the statute keys off receipt anyway. The tick used to
+    pre-check the signature and skip, so such a case sat in needs-intake
+    forever because nothing ever asked recompute() again.
+    """
+    from hopscotch.deadlines import recompute
+
+    case = a_case()
+    case.consent.consent_signed_on = None
+    case.consent.received_on = date(2026, 9, 10)
+    out = recompute(case, today=date(2026, 10, 1))
+    assert out.clock_started_on == date(2026, 9, 10)

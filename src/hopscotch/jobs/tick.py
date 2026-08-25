@@ -70,12 +70,15 @@ def run_tick(
 
         for case in store.open_cases():
             counts["scanned"] += 1
-            # Not an error and not retryable: an illegible signature date means
-            # a human has to read the form. Counted, not dead-lettered, so it
-            # does not refile itself every hour for the life of the case.
-            if case.consent is not None and case.consent.consent_signed_on is None:
-                counts["needs_intake"] += 1
-                continue
+            # Whether the clock can start is recompute()'s decision alone. This
+            # used to pre-check consent_signed_on here and skip, which was a
+            # second copy of the rule and the wrong one: a form whose RECEIPT
+            # date is legible but whose signature is not can be computed
+            # perfectly well, and the statute keys off receipt anyway. Cases
+            # like that sat in needs-intake permanently, because nothing ever
+            # asked recompute() again. It raises ClockCannotStart when neither
+            # date is readable, which the handler below counts -- not an error
+            # and not retryable, so it does not refile itself every hour.
             try:
                 result, comp = call_worker(
                     "clock_agent",
@@ -84,6 +87,10 @@ def run_tick(
                     ).model_dump(mode="json"),
                     DeadlineComputation,
                     student_ref=case.student_ref,
+                    # A clock that cannot start is a case state, not a worker
+                    # fault -- let it reach the handler below instead of being
+                    # retried three times and recorded as an error.
+                    passthrough=(ClockCannotStart,),
                 )
             except ClockCannotStart:
                 counts["needs_intake"] += 1

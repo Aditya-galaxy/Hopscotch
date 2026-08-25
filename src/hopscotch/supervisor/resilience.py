@@ -79,11 +79,19 @@ def call_worker(
     *,
     student_ref: str,
     max_attempts: int = MAX_ATTEMPTS,
+    passthrough: tuple[type[BaseException], ...] = (),
 ) -> tuple[WorkerResult, T | None]:
     """Invoke a worker, validate its return, retry bounded, then give up loudly.
 
     `fn` takes the attempt number so a worker can tighten its own prompt on a
     retry rather than replaying the identical call that just failed.
+
+    `passthrough` names exceptions that are BUSINESS OUTCOMES rather than worker
+    failures, and are re-raised untouched for the caller to handle. Without it
+    the blanket `except Exception` below turns "this case legitimately has no
+    clock" into "the clock worker failed three times", which is a different
+    thing: it burns retries, trips the breaker, and files an operational error
+    for a case that is simply waiting on a human to read a form.
     """
     BREAKER.check(agent)
     last_error = "no attempt made"
@@ -94,6 +102,9 @@ def call_worker(
             try:
                 raw = fn(attempt)
                 validated = model.model_validate(raw)
+            except passthrough:
+                s.set_attribute("outcome", "business_outcome")
+                raise
             except ValidationError as e:
                 last_error = f"schema violation: {e.error_count()} field(s)"
                 s.set_attribute("outcome", "invalid_shape")
