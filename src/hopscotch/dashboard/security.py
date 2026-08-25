@@ -77,6 +77,19 @@ def require_writable() -> None:
                  "accountable for approving a notice to a family.")
 
 
+def writable(request: Request) -> None:
+    """The write guard as a dependency, so it fires BEFORE body validation.
+
+    Called in a handler body, the guard runs only after FastAPI has parsed and
+    validated the form -- so a malformed write to a read-only deployment answers
+    422 instead of 403, which reports the wrong reason for the refusal. As a
+    dependency it is resolved first and the answer is 403 either way. The
+    same-origin check rides along for the same reason.
+    """
+    require_writable()
+    require_same_origin(request)
+
+
 def require_same_origin(request: Request) -> None:
     """Reject cross-site form posts. Absent Origin and Referer is allowed only
     for non-browser clients, which cannot be CSRF'd."""

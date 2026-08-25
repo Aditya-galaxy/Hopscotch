@@ -24,6 +24,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from ..config import PROJECT_NAME
 from .security import (
     demo_writes_enabled,
+    writable,
     SecurityHeaders, read_only, require_same_origin, require_writable,
 )
 
@@ -153,17 +154,17 @@ def _needs(who, scope: str) -> None:
 # --- write endpoints --------------------------------------------------------
 
 @app.post("/outbox/{item_id}/approve")
-def approve_notice(item_id: str, request: Request, who=Depends(principal)):
+def approve_notice(item_id: str, request: Request, who=Depends(principal), _w=Depends(writable)):
     """A named human takes responsibility for contacting a family."""
-    require_writable(); require_same_origin(request); _needs(who, "notice.approve")
+    _needs(who, "notice.approve")
     from ..delivery import approve
     approve(item_id, approved_by=who.email)
     return RedirectResponse("/", status_code=303)
 
 
 @app.post("/outbox/{item_id}/reject")
-def reject_notice(item_id: str, request: Request, who=Depends(principal)):
-    require_writable(); require_same_origin(request); _needs(who, "notice.approve")
+def reject_notice(item_id: str, request: Request, who=Depends(principal), _w=Depends(writable)):
+    _needs(who, "notice.approve")
     from ..delivery import reject
     reject(item_id, rejected_by=who.email)
     return RedirectResponse("/", status_code=303)
@@ -171,13 +172,13 @@ def reject_notice(item_id: str, request: Request, who=Depends(principal)):
 
 @app.post("/intake")
 def drop_document(request: Request, text: str = Form(...),
-                  source: str = Form("upload"), who=Depends(principal)):
+                  source: str = Form("upload"), who=Depends(principal), _w=Depends(writable)):
     """Accept a consent document. Extraction happens on the fleet, not here.
 
     This surface has no model access by design, so it records the document and
     the tick screens and reads it. A compromised dashboard cannot call Vertex.
     """
-    require_writable(); require_same_origin(request); _needs(who, "case.write")
+    _needs(who, "case.write")
     from .. import store
 
     if len(text.strip()) < 40:
@@ -194,7 +195,7 @@ def drop_document(request: Request, text: str = Form(...),
 def log_delivery(student_ref: str, request: Request, service: str = Form(...),
                  minutes: int = Form(...), units: int = Form(...),
                  note: str = Form(...), npi: str = Form(...),
-                 provider_type: str = Form(...), who=Depends(principal)):
+                 provider_type: str = Form(...), who=Depends(principal), _w=Depends(writable)):
     """Log a delivered session. Claim readiness assesses it on the next tick."""
     from datetime import date as _date
 
@@ -204,7 +205,7 @@ def log_delivery(student_ref: str, request: Request, service: str = Form(...),
     from ..schemas import IEPService, ServiceDelivery
     from ..store import client_kwargs
 
-    require_writable(); require_same_origin(request); _needs(who, "case.write")
+    _needs(who, "case.write")
 
     today = _date.today()
     delivery = ServiceDelivery(
@@ -228,7 +229,7 @@ def log_delivery(student_ref: str, request: Request, service: str = Form(...),
 
 
 @app.post("/run/tick")
-def run_tick_now(request: Request, who=Depends(principal)):
+def run_tick_now(request: Request, who=Depends(principal), _w=Depends(writable)):
     """Run a tick now instead of waiting for the hour.
 
     Triggers the Cloud Run JOB rather than running in-process. This service runs
@@ -240,7 +241,7 @@ def run_tick_now(request: Request, who=Depends(principal)):
 
     from ..config import settings
 
-    require_writable(); require_same_origin(request); _needs(who, "case.write")
+    _needs(who, "case.write")
 
     project = settings.project_id
     region = os.environ.get("MODEL_ARMOR_LOCATION", "us-central1")
@@ -267,7 +268,7 @@ def run_tick_now(request: Request, who=Depends(principal)):
 
 
 @app.get("/claims/export.csv")
-def export_claims(who=Depends(principal)):
+def export_claims(who=Depends(principal), _w=Depends(writable)):
     """The batch a billing vendor ingests. Export is not submission."""
     from fastapi.responses import Response
 
@@ -289,9 +290,9 @@ def export_claims(who=Depends(principal)):
 @app.post("/case/{student_ref}/correct")
 def correct_case(student_ref: str, request: Request, field: str = Form(...),
                  value: str = Form(...), reason: str = Form(...),
-                 who=Depends(principal)):
+                 who=Depends(principal), _w=Depends(writable)):
     """Overriding the fleet. A reason is required, always."""
-    require_writable(); require_same_origin(request); _needs(who, "case.write")
+    _needs(who, "case.write")
     from datetime import date as _date
 
     from .. import store
@@ -314,7 +315,7 @@ def correct_case(student_ref: str, request: Request, field: str = Form(...),
 # --- media, authorized ------------------------------------------------------
 
 @app.get("/outbox/{item_id}/audio")
-def outbox_audio(item_id: str, who=Depends(principal)):
+def outbox_audio(item_id: str, who=Depends(principal), _w=Depends(writable)):
     """Audio is reached through the outbox item it belongs to, never by filename.
 
     The previous route served any file in the media directory to anyone who knew
@@ -342,7 +343,7 @@ def outbox_audio(item_id: str, who=Depends(principal)):
 
 
 @app.get("/explainer")
-def explainer(who=Depends(principal)):
+def explainer(who=Depends(principal), _w=Depends(writable)):
     """District-wide, identical for every family, so it carries no case data."""
     from ..media import MEDIA_DIR
     p = (MEDIA_DIR / "evaluation-timeline.mp4").resolve()
