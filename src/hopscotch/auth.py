@@ -94,6 +94,15 @@ def verify(id_token_str: str) -> Principal:
     from google.oauth2 import id_token as google_id_token
 
     audience = os.environ.get("OAUTH_CLIENT_ID")
+    if not audience:
+        # google-auth documents this precisely: "If None then the audience is
+        # not verified." Passing it through would accept a token minted for ANY
+        # Google OAuth client -- signature and issuer still check out, so the
+        # bypass looks like a successful login. Refuse instead.
+        raise NotAuthenticated(
+            "OAUTH_CLIENT_ID is unset; refusing to verify a token without "
+            "checking who it was issued for")
+
     with span("auth.verify") as s:
         try:
             claims = google_id_token.verify_oauth2_token(
@@ -106,8 +115,16 @@ def verify(id_token_str: str) -> Principal:
         if not email or not claims.get("email_verified"):
             raise NotAuthenticated("token carries no verified email")
 
+        # An empty allowlist means "nobody is allowed", not "everybody is".
+        # The previous form was `if domains and ...`, so an unset ALLOWED_DOMAINS
+        # skipped the check entirely and any verified Google account was let in
+        # on the default role.
         domains = _allowed_domains()
-        if domains and email.rsplit("@", 1)[-1] not in domains:
+        if not domains:
+            raise NotAuthenticated(
+                "ALLOWED_DOMAINS is unset; refusing to admit every Google "
+                "account. Set it to the district's mail domain(s).")
+        if email.rsplit("@", 1)[-1] not in domains:
             s.set_attribute("ok", False)
             raise NotAuthenticated(f"{email} is outside the permitted domains")
 

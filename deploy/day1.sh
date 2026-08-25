@@ -207,6 +207,17 @@ else
     --oauth-service-account-email="$SCHED_SA@$PROJECT_ID.iam.gserviceaccount.com"
 fi
 
+# A deployment with REQUIRE_AUTH=true and no OAUTH_CLIENT_ID/ALLOWED_DOMAINS
+# will refuse every login rather than admit everyone -- which is the intended
+# failure, but it should be a loud one, not a surprise on the day.
+if [ "${REQUIRE_AUTH:-true}" != "false" ] && \
+   { [ -z "${OAUTH_CLIENT_ID:-}" ] || [ -z "${ALLOWED_DOMAINS:-}" ]; }; then
+  echo
+  echo "    NOTE: REQUIRE_AUTH is on but OAUTH_CLIENT_ID and/or ALLOWED_DOMAINS"
+  echo "    are unset, so sign-in will be refused. Set both, or deploy the"
+  echo "    read-only demo with REQUIRE_AUTH=false."
+fi
+
 say "9/9  first run"
 gcloud scheduler jobs run agentx-hourly --location="$REGION" --project="$PROJECT_ID"
 

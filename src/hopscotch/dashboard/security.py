@@ -11,6 +11,7 @@ Three things, each fixing something the audit actually found:
 from __future__ import annotations
 
 import os
+from urllib.parse import urlsplit
 
 from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -71,7 +72,13 @@ def require_same_origin(request: Request) -> None:
     host = request.headers.get("host", "")
     allowed = os.environ.get("ALLOWED_ORIGINS", "").split(",")
     candidates = {f"https://{host}", f"http://{host}"} | {
-        a.strip() for a in allowed if a.strip()}
-    src = origin or referer
-    if not any(src.startswith(c) for c in candidates):
+        f"{urlsplit(a.strip()).scheme}://{urlsplit(a.strip()).netloc}"
+        for a in allowed if a.strip()}
+    # Compare the parsed ORIGIN, never a string prefix. startswith() would
+    # accept https://<host>.evil.example, because that genuinely does begin
+    # with https://<host> -- and the Referer fallback made it worse, since a
+    # full referring URL carries a path after the host.
+    parts = urlsplit(origin or referer)
+    src_origin = f"{parts.scheme}://{parts.netloc}"
+    if src_origin not in candidates:
         raise HTTPException(403, "cross-origin request refused")
