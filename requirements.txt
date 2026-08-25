@@ -1,18 +1,24 @@
-# Pin these after the first successful install on day 1 -- `pip freeze` into
-# requirements.lock.txt and commit both.
+# Direct dependencies, human-readable. VERSIONS LIVE IN requirements.lock.txt,
+# which is what the image installs -- see the note at the top of that file.
+# Regenerate the lock after changing anything here:
+#     .venv/bin/python -m pip install -r requirements.txt
+#     .venv/bin/python -m pip freeze > requirements.lock.txt
 google-adk
 # Memory Bank and Agent Engine live here; google-adk does NOT pull it in,
 # and without it memory writes fail at runtime rather than at import.
 google-cloud-aiplatform
 google-genai
-# Pinned deliberately. An unpinned resolve pulled a newer client into the
-# container that percent-encodes an explicit database id into the resource
-# path, so "(default)" arrived as %28default%29 and every Firestore call failed
-# with InvalidArgument -- while the same code worked locally on 2.28.1. The
-# floor keeps local and container on the same behaviour.
-google-cloud-firestore==2.28.1
+google-cloud-firestore
 # Imported directly for ClientOptions (regional endpoints, quota project).
-google-api-core
+#
+# PINNED BELOW 2.35. That release breaks every Firestore call with
+#   InvalidArgument: 400 Invalid database id %28default%29
+# regardless of how the database is passed -- "(default)", None, and omitting
+# the argument all fail identically, so it is not a usage error. Isolated on
+# 2026-08-25 by toggling this package alone three times against a live
+# Firestore read; 2.34.0 reads fine, 2.35.0 fails, 2.34.0 reads fine again.
+# firestore 2.29.0 is unaffected once this is correct.
+google-api-core<2.35
 google-cloud-pubsub
 opentelemetry-sdk
 opentelemetry-exporter-gcp-trace

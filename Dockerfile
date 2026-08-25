@@ -1,8 +1,13 @@
-FROM python:3.12-slim
+# Matches the local interpreter the lock is generated on. A 3.13 freeze does
+# not necessarily resolve on 3.12, and "works on my machine" is exactly the
+# failure this lock exists to prevent.
+FROM python:3.13-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONPATH=/app/src
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install from the LOCK, not the loose list. An unpinned resolve is what broke
+# the deployment on 25 Aug: same commit, new image, different Firestore client.
+COPY requirements.lock.txt .
+RUN pip install --no-cache-dir -r requirements.lock.txt
 COPY src/ ./src/
 COPY registry/ ./registry/
 # Generated media is baked in. The Veo explainer is district-wide and identical

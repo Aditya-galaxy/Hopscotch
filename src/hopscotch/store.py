@@ -27,11 +27,15 @@ def _database() -> str | None:
 def client_kwargs() -> dict:
     """Arguments for a Firestore client, with `database` OMITTED by default.
 
-    Passing database=None is not equivalent to leaving it out: some client
-    versions substitute the literal "(default)" and percent-encode it into the
-    resource path, so every call fails with `Invalid database id %28default%29`
-    -- while the same code works on an older client locally. Omitting the
-    argument is the only form that behaves identically across versions.
+    One place builds a client, so credentials and database resolution cannot
+    drift apart across modules.
+
+    Historical note, because the comment here used to blame the wrong thing:
+    the `Invalid database id %28default%29` outage of 25 Aug was NOT caused by
+    how the database argument was passed. Every form failed identically --
+    "(default)", None, and omitting it. The cause was google-api-core 2.35.0,
+    now pinned below that in requirements.txt. This helper is kept because
+    single-sourcing client construction is worth having regardless.
     """
     kwargs: dict = {"project": settings.project_id or None}
     db = _database()
