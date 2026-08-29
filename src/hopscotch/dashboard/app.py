@@ -653,6 +653,15 @@ def _intake_block(who) -> str:
     rows = rows or "<tr><td colspan=4 class=empty>Nothing dropped yet.</td></tr>"
 
     form = ""
+    if read_only():
+        # Explain the missing form. A heading that says "paste it as it arrived"
+        # above no textarea reads as broken rather than as a locked capability,
+        # and this is the page a stranger sees first.
+        form = ("<div class=locked>The drop box is hidden here because this "
+                "public demo is read-only &mdash; an unauthenticated visitor "
+                "cannot be held accountable for what they file. The rows below "
+                "are real documents the fleet has already processed, including "
+                "one Model Armor refused.</div>")
     if not read_only():
         form = (
             "<form method=post action='/intake' class=drop>"
