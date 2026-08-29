@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import html
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from datetime import date
 
 from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request
@@ -37,6 +38,8 @@ app = FastAPI(title=f"{PROJECT_NAME} — coordinator",
 app.add_middleware(SecurityHeaders)
 
 e = html.escape
+
+_SITE = Path(__file__).resolve().parents[3] / "site"
 
 CSS = """
 :root{
@@ -244,7 +247,7 @@ def approve_notice(item_id: str, request: Request, who=Depends(principal), _w=De
     _needs(who, "notice.approve")
     from ..delivery import approve
     approve(item_id, approved_by=who.email)
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/app", status_code=303)
 
 
 @app.post("/outbox/{item_id}/reject")
@@ -252,7 +255,7 @@ def reject_notice(item_id: str, request: Request, who=Depends(principal), _w=Dep
     _needs(who, "notice.approve")
     from ..delivery import reject
     reject(item_id, rejected_by=who.email)
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/app", status_code=303)
 
 
 @app.post("/intake")
@@ -267,12 +270,12 @@ def drop_document(request: Request, text: str = Form(...),
     from .. import store
 
     if len(text.strip()) < 40:
-        return RedirectResponse("/?msg=That+does+not+look+like+a+consent+form.",
+        return RedirectResponse("/app?msg=That+does+not+look+like+a+consent+form.",
                                 status_code=303)
     store.queue_document(text=text.strip(), source=(source or "upload")[:60],
                          dropped_by=who.email)
     return RedirectResponse(
-        "/?msg=Queued.+The+fleet+screens+and+reads+it+on+the+next+tick.",
+        "/app?msg=Queued.+The+fleet+screens+and+reads+it+on+the+next+tick.",
         status_code=303)
 
 
@@ -342,13 +345,13 @@ def run_tick_now(request: Request, who=Depends(principal), _w=Depends(writable))
         resp = AuthorizedSession(creds).post(url, timeout=30)
         if resp.status_code >= 300:
             return RedirectResponse(
-                f"/?msg=Could+not+start+the+tick+({resp.status_code}).",
+                f"/app?msg=Could+not+start+the+tick+({resp.status_code}).",
                 status_code=303)
     except Exception as exc:
-        return RedirectResponse(f"/?msg=Could+not+start+the+tick:+{type(exc).__name__}",
+        return RedirectResponse(f"/app?msg=Could+not+start+the+tick:+{type(exc).__name__}",
                                 status_code=303)
     return RedirectResponse(
-        "/?msg=Tick+started.+Reload+in+a+moment+to+see+what+it+did.",
+        "/app?msg=Tick+started.+Reload+in+a+moment+to+see+what+it+did.",
         status_code=303)
 
 
@@ -394,7 +397,7 @@ def correct_case(student_ref: str, request: Request, field: str = Form(...),
             reason=reason.strip(), by=who.email, computed_was=was))
     except (KeyError, ValueError) as exc:
         raise HTTPException(400, str(exc)) from exc
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/app", status_code=303)
 
 
 # --- media, authorized ------------------------------------------------------
@@ -868,7 +871,7 @@ def case_detail(student_ref: str, msg: str = "", who=Depends(principal)) -> str:
 <meta name=robots content="noindex,nofollow">
 <title>{e(student_ref)} — {PROJECT_NAME}</title><style>{CSS}</style>
 <body><div class=wrap>
-<a class=back href="/">&larr; caseload</a>
+<a class=back href="/app">&larr; caseload</a>
 {_banner()}
 {_flash(msg)}
 <header class=top>
@@ -912,6 +915,25 @@ gateway never returns them, so they cannot leak from a page that never had them.
 
 
 @app.get("/", response_class=HTMLResponse)
+def landing() -> str:
+    """The public front door. Static, no Firestore, no models, no identity.
+
+    Served from a file rather than built in Python: it is a marketing page that
+    a designer should be able to edit without reading this module, and it must
+    render for someone who is not signed in and never will be. The application
+    lives at /app.
+    """
+    page = _SITE / "index.html"
+    if not page.exists():
+        # The image copies site/ explicitly; if that were ever dropped the
+        # front door should say so rather than 500 on a missing file.
+        return ("<!doctype html><meta charset=utf-8><title>Hopscotch</title>"
+                "<p>Landing page not bundled in this image. "
+                "The application is at <a href='/app'>/app</a>.")
+    return page.read_text(encoding="utf-8")
+
+
+@app.get("/app", response_class=HTMLResponse)
 def index(msg: str = "", who=Depends(principal)) -> str:
     # Every block below is an independent set of Firestore reads. Rendered
     # inline in the f-string they ran one after another, which is most of the

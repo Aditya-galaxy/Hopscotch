@@ -44,31 +44,31 @@ def test_audio_requires_authentication(monkeypatch):
 
 def test_index_requires_authentication(monkeypatch):
     monkeypatch.setenv("REQUIRE_AUTH", "true")
-    assert TestClient(app).get("/").status_code == 401
+    assert TestClient(app).get("/app").status_code == 401
 
 
 # --- role-scoped rendering ---------------------------------------------------
 
 def test_a_liaison_is_not_shown_the_audit_trail(monkeypatch):
     """The audit trail names every student who moved. It needs case.write."""
-    body = client_as(Role.LIAISON, monkeypatch=monkeypatch).get("/").text
+    body = client_as(Role.LIAISON, monkeypatch=monkeypatch).get("/app").text
     assert "case.write" in body, "no explanation of what is hidden"
     assert "Append-only. Every row" not in body
 
 
 def test_a_coordinator_is_shown_the_audit_trail(monkeypatch):
-    body = client_as(Role.COORDINATOR, monkeypatch=monkeypatch).get("/").text
+    body = client_as(Role.COORDINATOR, monkeypatch=monkeypatch).get("/app").text
     assert "Audit trail" in body
 
 
 def test_a_liaison_cannot_see_claim_readiness(monkeypatch):
-    body = client_as(Role.LIAISON, monkeypatch=monkeypatch).get("/").text
+    body = client_as(Role.LIAISON, monkeypatch=monkeypatch).get("/app").text
     assert "claim.read" in body
 
 
 def test_the_header_states_whether_clinical_detail_is_visible(monkeypatch):
     """A person should know what they are looking at without guessing."""
-    liaison = client_as(Role.LIAISON, monkeypatch=monkeypatch).get("/").text
+    liaison = client_as(Role.LIAISON, monkeypatch=monkeypatch).get("/app").text
     assert "clinical detail withheld" in liaison
     assert "liaison" in liaison
 
@@ -88,7 +88,7 @@ def test_writes_are_refused_when_authentication_is_off(monkeypatch):
 
 def test_the_read_only_banner_is_shown(monkeypatch):
     body = client_as(Role.COORDINATOR, monkeypatch=monkeypatch,
-                     auth_on=False).get("/").text
+                     auth_on=False).get("/app").text
     assert "Read-only public demo" in body
     assert "REQUIRE_AUTH=true" in body
 
@@ -120,3 +120,49 @@ def test_api_docs_are_not_exposed():
     c = TestClient(app)
     for path in ("/docs", "/redoc", "/openapi.json"):
         assert c.get(path).status_code == 404, f"{path} is exposed"
+
+
+# --- the public front door ---------------------------------------------------
+
+def test_the_landing_page_is_public_and_needs_no_identity(monkeypatch):
+    """/ is marketing, not application. It must render for someone who is not
+    signed in and never will be, even with authentication switched on."""
+    monkeypatch.setenv("REQUIRE_AUTH", "true")
+    r = TestClient(app).get("/")
+    assert r.status_code == 200
+    assert "Sixty days from" in r.text
+
+
+def test_the_landing_page_is_actually_bundled():
+    """The image copies site/ as its own COPY line, and a page served from disk
+    fails in the container while working perfectly on a laptop. Assert the file
+    is where the app looks for it, and that the fallback is not what shipped.
+    """
+    r = TestClient(app).get("/")
+    assert "not bundled in this image" not in r.text
+    assert "/app" in r.text, "the demo link must point at the application"
+
+
+def test_the_landing_page_grants_no_script_capability():
+    """Admitting the font hosts must not have opened script execution."""
+    r = TestClient(app).get("/")
+    csp = r.headers["content-security-policy"]
+    assert "script-src 'none'" in csp
+    assert "fonts.googleapis.com" in csp and "fonts.gstatic.com" in csp
+    assert "<script" not in r.text.lower()
+
+
+def test_no_write_ever_redirects_onto_the_landing_page():
+    """Post-redirect-GET must land back in the application.
+
+    When the dashboard moved from / to /app, four of these redirects sat on
+    continuation lines and were missed, so a successful intake bounced the
+    coordinator onto the marketing page with a success message they could not
+    act on. Cheap to assert, easy to break again.
+    """
+    import re
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[1] / "src/hopscotch/dashboard/app.py"
+    bad = re.findall(r'RedirectResponse\(\s*f?"/(?:\?|"|,)', src.read_text())
+    assert not bad, f"redirect targets the landing page: {bad}"

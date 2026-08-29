@@ -93,6 +93,7 @@ cat <<'EOF'
   [ ] Do Not Disturb ON  (a notification banner ruins a take)
   [ ] Terminal font >= 18pt, dark theme, full screen
   [ ] Browser zoom 125-150%
+  [ ] Open the dashboard at /app -- / is the landing page
   [ ] Close every tab except the dashboard + Cloud Run executions + Cloud Trace
   [ ] Hide the bookmarks bar (Cmd+Shift+B)
   [ ] Check the GCP console avatar -- your email is visible top-right
@@ -100,7 +101,7 @@ cat <<'EOF'
 
 EOF
 
-bold "Starting the dashboard on http://localhost:$PORT  (Ctrl-C to stop)"
+bold "Landing page http://localhost:$PORT  ·  dashboard http://localhost:$PORT/app"
 echo
 # `.venv/bin/uvicorn` is NOT used here on purpose. The venv predates a
 # directory rename, so its console-script shebangs still point at the old

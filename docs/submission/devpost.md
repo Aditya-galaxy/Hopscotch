@@ -14,7 +14,7 @@ not.*
 **Google SDK used:** Google ADK 2.7.1
 **Repository:** https://github.com/Aditya-galaxy/Hopscotch
 **Hosted project:** https://agentx-dashboard-dijsyl2kwq-uc.a.run.app
-(public, read-only, all data synthetic — no credentials needed)
+(public, read-only, all data synthetic — no credentials needed. The landing page is at `/`; the running application is at [`/app`](https://agentx-dashboard-dijsyl2kwq-uc.a.run.app/app).)
 
 ---
 

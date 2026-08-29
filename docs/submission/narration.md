@@ -53,7 +53,8 @@ Check the receipt date is more than 60 days before the day you record, or the
 case won't be overdue and there is nothing to escalate.
 
 Tabs open and pre-loaded so nothing spins during the take:
-1. the local dashboard — http://localhost:8080
+1. the local dashboard — http://localhost:8080/app
+   (`/` is the landing page now; the application lives at `/app`)
 2. Cloud Run jobs → `agentx-tick` → executions
 3. Cloud Trace → trace list
 

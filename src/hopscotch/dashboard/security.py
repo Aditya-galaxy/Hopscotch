@@ -18,7 +18,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 # No inline script anywhere in this app, so the policy can be strict. Styles are
 # a single inline block, hence 'unsafe-inline' for style-src only.
-CSP = ("default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; "
+# The two Google Fonts hosts are the only external origins admitted, and they
+# are admitted for stylesheets and font files ONLY -- script-src stays 'none',
+# so nothing here grants an execution capability. The landing page at / uses
+# them; the application does not, and would still work if they were removed.
+CSP = ("default-src 'self'; script-src 'none'; "
+       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+       "font-src 'self' https://fonts.gstatic.com; "
        "img-src 'self' data:; media-src 'self'; form-action 'self'; "
        "frame-ancestors 'none'; base-uri 'none'; object-src 'none'")
 

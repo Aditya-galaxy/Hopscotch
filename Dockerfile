@@ -13,6 +13,9 @@ COPY registry/ ./registry/
 # Generated media is baked in. The Veo explainer is district-wide and identical
 # for every family, so it ships with the image rather than being regenerated.
 COPY data/media/ ./data/media/
+# The public landing page served at /. Without this the front door 404s in the
+# container while working perfectly on a laptop.
+COPY site/ ./site/
 
 # ONE image, two entrypoints. The default serves the coordinator dashboard;
 # the Cloud Run JOB overrides the command to run the tick:

@@ -20,7 +20,7 @@ export GOOGLE_CLOUD_PROJECT=kronagent
 ```
 
 Have open in tabs, pre-loaded, so nothing spins during the take:
-1. the dashboard — https://agentx-dashboard-dijsyl2kwq-uc.a.run.app
+1. the dashboard — https://agentx-dashboard-dijsyl2kwq-uc.a.run.app/app  (`/` is the landing page)
 2. Cloud Run jobs → agentx-tick → executions
 3. Cloud Trace → trace list
 
