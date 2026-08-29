@@ -113,7 +113,7 @@ Nothing below needs cloud credentials.
 
 ```bash
 make install          # venv + dependencies
-make test             # 44 tests, ~1s
+make test             # 161 tests, ~100s
 make corpora          # fetch the benign skill corpus
 make scan SKILL=data/replicas/credential-helper ARGS=--structural-only
 ```

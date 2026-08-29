@@ -20,7 +20,7 @@ export GOOGLE_CLOUD_PROJECT=kronagent
 ```
 
 Have open in tabs, pre-loaded, so nothing spins during the take:
-1. the dashboard — https://agentx-dashboard-761390104675.us-central1.run.app
+1. the dashboard — https://agentx-dashboard-dijsyl2kwq-uc.a.run.app
 2. Cloud Run jobs → agentx-tick → executions
 3. Cloud Trace → trace list
 
@@ -40,7 +40,8 @@ Have open in tabs, pre-loaded, so nothing spins during the take:
 >
 > Hopscotch is both halves. Gemini 3.5 Flash on Google ADK.
 
-**On screen:** the dashboard. `7 overdue · 8 due within 7 days · 46 open cases`.
+**On screen:** the dashboard. `14 overdue · 8 due within 7 days · 52 open cases`.
+Check these against the live tiles before recording -- the hourly tick moves them.
 Let it sit. The tiles do the work.
 
 ---
@@ -74,9 +75,9 @@ gcloud run jobs execute agentx-tick --region=us-central1 --wait
 Then the logs, live:
 
 ```
-tick tick-20260822T11 complete:
-  {'scanned': 46, 'escalated': 12, 'suppressed': 0,
-   'needs_intake': 0, 'dead_lettered': 0, 'errors': 0}
+tick tick-20260829T04 complete:
+  {'scanned': 53, 'escalated': 1, 'suppressed': 0, 'needs_intake': 1,
+   'dead_lettered': 0, 'errors': 0, 'documents_read': 1, 'documents_blocked': 0}
 ```
 
 > Twelve escalations. Run it again in the same hour —
@@ -86,7 +87,7 @@ gcloud run jobs execute agentx-tick --region=us-central1 --wait
 ```
 
 ```
-{'scanned': 46, 'escalated': 0, ...}
+{'scanned': 53, 'escalated': 0, ...}
 ```
 
 > Zero. The audit trail still holds exactly twelve rows. At-least-once
