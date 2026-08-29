@@ -1,0 +1,445 @@
+<title>Hopscotch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,200;6..72,300;6..72,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap">
+
+<style>
+/* Committed single visual world: black and white, no accent, no theme flip.
+   Every colour is painted explicitly so the page holds on any host ground. */
+:root{
+  --ink:#000000;
+  --raised:#0B0B0B;
+  --rule:#1E1E1E;
+  --rule-bright:#2E2E2E;
+  --muted:#8A8A8A;
+  --second:#B5B5B5;
+  --paper:#FFFFFF;
+
+  --col:1120px;
+  --serif:"Newsreader",ui-serif,Georgia,"Times New Roman",serif;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--ink);color:var(--paper);
+  font-family:var(--sans);font-weight:300;font-size:16px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--paper);outline-offset:3px}
+
+/* The column rails. They run the full height of every band, which is where the
+   ruled-form feeling comes from -- the subject is statutory paperwork. */
+.band{position:relative;border-bottom:1px solid var(--rule)}
+.band::before,.band::after{
+  content:"";position:absolute;top:0;bottom:0;width:1px;background:var(--rule);
+  pointer-events:none;
+}
+.band::before{left:max(24px,calc(50% - var(--col)/2))}
+.band::after{right:max(24px,calc(50% - var(--col)/2))}
+.inner{
+  max-width:var(--col);margin:0 auto;
+  padding:0 clamp(22px,5vw,64px);
+}
+@media(max-width:720px){.band::before,.band::after{display:none}}
+
+/* ---- type scale ---------------------------------------------------------- */
+.eyebrow{
+  font-family:var(--mono);font-size:.7rem;font-weight:500;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  display:block;margin-bottom:1.6rem;
+}
+h1,h2,h3{font-family:var(--serif);font-weight:200;margin:0;text-wrap:balance;
+  letter-spacing:-.015em;line-height:1.06}
+h1{font-size:clamp(2.7rem,7.4vw,5.4rem)}
+h2{font-size:clamp(2rem,4.4vw,3.3rem);line-height:1.1}
+h3{font-size:1.35rem;font-weight:300;line-height:1.25}
+p{margin:0;max-width:62ch}
+.lede{font-size:clamp(1rem,1.5vw,1.15rem);color:var(--second);line-height:1.65}
+.small{font-size:.9rem;color:var(--muted);line-height:1.6}
+
+/* ---- nav ----------------------------------------------------------------- */
+nav .inner{display:flex;align-items:center;gap:2rem;height:66px}
+.word{font-family:var(--serif);font-size:1.16rem;font-weight:300;letter-spacing:-.01em}
+.navlinks{margin-left:auto;display:flex;gap:1.9rem;
+  font-size:.85rem;color:var(--muted)}
+.navlinks a:hover{color:var(--paper)}
+@media(max-width:640px){.navlinks{display:none}}
+
+/* ---- hero ---------------------------------------------------------------- */
+.hero .inner{padding-top:clamp(72px,13vw,150px);padding-bottom:clamp(56px,8vw,96px)}
+.hero h1{margin-bottom:1.9rem}
+.hero .lede{margin-bottom:2.6rem}
+.cta{display:flex;gap:.7rem;flex-wrap:wrap}
+.btn{
+  font-family:var(--sans);font-size:.87rem;font-weight:400;
+  padding:.62rem 1.25rem;border-radius:999px;border:1px solid var(--paper);
+  background:var(--paper);color:var(--ink);
+  display:inline-flex;align-items:center;gap:.5rem;
+  transition:opacity .16s ease,background .16s ease,color .16s ease;
+}
+.btn:hover{opacity:.82}
+.btn.line{background:transparent;color:var(--paper);border-color:var(--rule-bright)}
+.btn.line:hover{background:var(--raised);opacity:1;border-color:var(--muted)}
+
+/* ---- the 60-day clock: the thesis, drawn in CSS -------------------------- */
+.clock{margin-top:clamp(56px,8vw,96px)}
+.clockhead{display:flex;justify-content:space-between;align-items:baseline;
+  gap:1rem;margin-bottom:.85rem;font-family:var(--mono);font-size:.7rem;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+.strip{position:relative;height:74px;border-top:1px solid var(--rule);
+  border-bottom:1px solid var(--rule)}
+/* Sixty ticks, twice. The base layer is dim and always shows all sixty, so the
+   strip reads as a statutory period rather than a progress bar. The lit layer
+   is identical but white, and is CROPPED to the elapsed days with clip-path --
+   cropping rather than resizing is the whole trick: a second layer that changed
+   width would re-tile against its own box and drift out of phase with the one
+   underneath. Both tile against the same strip, so every tick lines up at any
+   viewport width. */
+.strip::before{
+  content:"";position:absolute;inset:0;
+  background-image:linear-gradient(90deg,var(--rule-bright) 0 1px,transparent 1px);
+  background-size:calc(100% / 60) 100%;
+}
+.elapsed{
+  position:absolute;inset:0;
+  background-image:linear-gradient(90deg,var(--paper) 0 1px,transparent 1px);
+  background-size:calc(100% / 60) 100%;
+  clip-path:inset(0 100% 0 0);
+  animation:fill 1500ms cubic-bezier(.22,.68,.24,1) 260ms forwards;
+}
+.elapsed::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.06),transparent 70%);
+}
+.marker{position:absolute;top:-1px;bottom:-1px;width:1px;background:var(--paper)}
+.marker span{
+  position:absolute;left:0;top:calc(100% + 9px);white-space:nowrap;
+  font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;color:var(--paper);
+}
+.marker.dim{background:var(--rule-bright)}
+.marker.dim span{color:var(--muted)}
+.marker.right span{left:auto;right:0;text-align:right}
+/* Day 43 of 60 = 71.6% of the strip. */
+@keyframes fill{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 28.4% 0 0)}}
+@media(prefers-reduced-motion:reduce){
+  .elapsed{animation:none;clip-path:inset(0 28.4% 0 0)}
+}
+/* Prose, so it is set in the body face. Mono is for labels and figures here --
+   running text in it is slower to read and was wrapping into a narrow column. */
+.clockfoot{margin-top:2.9rem;font-size:.88rem;color:var(--muted);
+  max-width:58ch;line-height:1.7}
+.clockfoot em{font-style:italic;color:var(--second)}
+
+/* ---- generic section ----------------------------------------------------- */
+.sec .inner{padding-top:clamp(64px,8vw,104px);padding-bottom:clamp(64px,8vw,104px)}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:clamp(32px,6vw,88px);
+  align-items:start}
+@media(max-width:860px){.split{grid-template-columns:1fr;gap:44px}}
+.split h2{margin-bottom:1.4rem}
+
+/* ---- the two halves ------------------------------------------------------ */
+.halves{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:3.2rem;
+  border-top:1px solid var(--rule)}
+.half{padding:2.6rem 0 0}
+.half:first-child{padding-right:clamp(24px,4vw,56px);border-right:1px solid var(--rule)}
+.half:last-child{padding-left:clamp(24px,4vw,56px)}
+@media(max-width:860px){
+  .halves{grid-template-columns:1fr}
+  .half:first-child{padding-right:0;border-right:0;border-bottom:1px solid var(--rule);
+    padding-bottom:2.6rem}
+  .half:last-child{padding-left:0}
+}
+.half .n{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;
+  color:var(--muted);display:block;margin-bottom:1.1rem}
+.half h3{margin-bottom:.9rem}
+
+/* ---- ordered steps: a real sequence, so numbered ------------------------- */
+.steps{margin-top:3.4rem;display:grid;gap:0}
+.step{display:grid;grid-template-columns:64px 1fr;gap:clamp(18px,3vw,44px);
+  padding:1.85rem 0;border-top:1px solid var(--rule);align-items:start}
+.step:last-child{border-bottom:1px solid var(--rule)}
+.step .idx{font-family:var(--mono);font-size:.72rem;color:var(--muted);
+  letter-spacing:.1em;padding-top:.3rem}
+.step h3{margin-bottom:.55rem;font-size:1.18rem}
+@media(max-width:640px){.step{grid-template-columns:1fr;gap:.55rem}
+  .step .idx{padding-top:0}}
+
+/* ---- measured results ---------------------------------------------------- */
+.figs{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:3.2rem;
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.fig{padding:2.1rem clamp(16px,2.4vw,30px) 2.1rem 0;border-right:1px solid var(--rule)}
+.fig:last-child{border-right:0}
+.fig .v{font-family:var(--serif);font-weight:200;font-size:clamp(2.1rem,4vw,3rem);
+  line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+  display:block;margin-bottom:.7rem}
+.fig .k{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);line-height:1.55}
+@media(max-width:860px){
+  .figs{grid-template-columns:1fr 1fr}
+  .fig:nth-child(2){border-right:0}
+  .fig:nth-child(1),.fig:nth-child(2){border-bottom:1px solid var(--rule)}
+  .fig{padding-left:0}
+  .fig:nth-child(2),.fig:nth-child(4){padding-left:clamp(16px,3vw,28px)}
+}
+
+/* ---- limits: a plain ledger, deliberately unglamorous -------------------- */
+.ledger{margin-top:3rem;border-top:1px solid var(--rule)}
+.row{display:grid;grid-template-columns:minmax(0,22ch) 1fr;
+  gap:clamp(16px,3vw,44px);padding:1.35rem 0;border-bottom:1px solid var(--rule);
+  align-items:baseline}
+.row dt{font-family:var(--mono);font-size:.76rem;letter-spacing:.04em;color:var(--paper)}
+.row dd{margin:0;color:var(--muted);font-size:.92rem;line-height:1.6}
+@media(max-width:640px){.row{grid-template-columns:1fr;gap:.4rem}}
+
+/* ---- close --------------------------------------------------------------- */
+.close .inner{padding-top:clamp(76px,10vw,132px);padding-bottom:clamp(76px,10vw,132px)}
+.close h2{margin-bottom:1.6rem;max-width:20ch}
+.close .cta{margin-top:2.6rem}
+footer{border-bottom:0}
+footer .inner{padding:2.4rem 0;display:flex;flex-wrap:wrap;gap:1rem 2rem;
+  align-items:center;font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;
+  color:var(--muted)}
+footer .sp{margin-left:auto}
+
+/* one orchestrated entrance, nothing else */
+.rise{opacity:0;transform:translateY(14px);
+  animation:rise 780ms cubic-bezier(.22,.68,.24,1) forwards}
+.d1{animation-delay:60ms}.d2{animation-delay:150ms}.d3{animation-delay:240ms}
+@keyframes rise{to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){
+  .rise{animation:none;opacity:1;transform:none}
+}
+</style>
+
+<nav class="band">
+  <div class="inner">
+    <span class="word">Hopscotch</span>
+    <div class="navlinks">
+      <a href="#how">How it runs</a>
+      <a href="#governed">What holds it</a>
+      <a href="#measured">Measured</a>
+      <a href="#limits">Limits</a>
+    </div>
+  </div>
+</nav>
+
+<section class="band hero">
+  <div class="inner">
+    <span class="eyebrow rise">Special education compliance &middot; Medicaid claiming</span>
+    <h1 class="rise d1">Sixty days from<br>a parent&rsquo;s signature.</h1>
+    <p class="lede rise d2">Federal law gives a school district sixty days to complete a
+      special education evaluation. Miss it and the district owes compensatory services
+      and faces a due process complaint. The person holding that clock is usually one
+      coordinator with a spreadsheet and no compliance team.</p>
+    <div class="cta rise d3">
+      <a class="btn" href="https://agentx-dashboard-dijsyl2kwq-uc.a.run.app">
+        Open the live demo &rarr;</a>
+      <a class="btn line" href="https://github.com/Aditya-galaxy/Hopscotch">Read the source</a>
+    </div>
+
+    <div class="clock">
+      <div class="clockhead">
+        <span>34 CFR &sect;300.301(c)(1)(i)</span>
+        <span>60 days</span>
+      </div>
+      <div class="strip">
+        <div class="elapsed"></div>
+        <div class="marker dim" style="left:0"><span>Consent received</span></div>
+        <div class="marker" style="left:71.6%"><span>Day 43</span></div>
+        <div class="marker dim right" style="right:0;left:auto"><span>Evaluation due</span></div>
+      </div>
+      <p class="clockfoot">The clock runs from the day the agency <em>receives</em> consent,
+        not the day the parent signed it. Breaks longer than five days pause it in some
+        states; others count school days instead, or thirty business days. Washington moved
+        to thirty-five school days in June 2026. Every one of those is a different
+        arithmetic on the same form.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band sec">
+  <div class="inner">
+    <span class="eyebrow">The pairing</span>
+    <div class="split">
+      <div>
+        <h2>Compliance is a cost centre. Cost centres get cut.</h2>
+      </div>
+      <div>
+        <p class="lede">Districts can bill Medicaid for the same services these deadlines
+          govern, and most underclaim badly. A single New York City audit found
+          $431.6&nbsp;million unclaimed. The reimbursement requirements are, almost word
+          for word, what a compliance system already holds: the service is in the IEP, it
+          was delivered as written, and it was documented.</p>
+      </div>
+    </div>
+
+    <div class="halves">
+      <div class="half">
+        <span class="n">01 &nbsp;/&nbsp; Keeps the clock</span>
+        <h3>Recomputes every deadline, hourly, unattended</h3>
+        <p class="small">Under that student&rsquo;s own jurisdiction rule and that
+          district&rsquo;s calendar. Escalates at fourteen, seven and two days out, firing
+          the tightest applicable rung once rather than three notices at a case found late.
+          Drafts the statutory notice and queues it for a named human.</p>
+      </div>
+      <div class="half">
+        <span class="n">02 &nbsp;/&nbsp; Recovers the money</span>
+        <h3>Asks whether a session would survive an audit</h3>
+        <p class="small">Eligibility, NPI, licence valid on the service date, provider type,
+          IEP window, units against documented minutes &mdash; and whether the session note
+          actually describes the authorised service. Over-billing blocks. Under-billing is
+          surfaced as revenue left behind.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band sec" id="how">
+  <div class="inner">
+    <span class="eyebrow">How it runs</span>
+    <h2>A document arrives. Nobody presses anything.</h2>
+
+    <div class="steps">
+      <div class="step">
+        <span class="idx">01</span>
+        <div>
+          <h3>A coordinator drops the form as it arrived</h3>
+          <p class="small">Phone-photo OCR noise, forwarded email, all of it. The page that
+            accepts it has no model access at all &mdash; it screens the document and parks
+            it. Anything carrying an embedded instruction is refused before an extractor
+            ever sees it, because the screen sits in front of the model rather than after.</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="idx">02</span>
+        <div>
+          <h3>The fleet reads it on the next tick</h3>
+          <p class="small">It extracts the dates and returns nothing rather than guessing
+            when a date is illegible &mdash; a statutory clock started from an invented date
+            is worse than one a human is asked to confirm. Every case page shows which date
+            started the clock and why.</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="idx">03</span>
+        <div>
+          <h3>It escalates down a privilege chain</h3>
+          <p class="small">Casework holds full clinical access to draft the legal notice. A
+            separate model strips every clinical finding. Only then does the family-facing
+            agent receive a redacted projection and write the letter home, which is spoken
+            aloud in the family&rsquo;s language.</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="idx">04</span>
+        <div>
+          <h3>A person decides whether it sends</h3>
+          <p class="small">The fleet drafts and queues. It never decides to contact a
+            family. Nothing reaches a parent without an approver on the record, by name.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band sec" id="governed">
+  <div class="inner">
+    <span class="eyebrow">What holds it</span>
+    <div class="split">
+      <div>
+        <h2>They need an agent more than anyone. They will never be given one.</h2>
+      </div>
+      <div>
+        <p class="lede">The records are minors&rsquo; clinical files and the district has no
+          security staff. So the interesting half was never the agents &mdash; it was the
+          guardrails that make pointing them at real records defensible.</p>
+        <p class="small" style="margin-top:1.5rem">The family-facing agent does not receive
+          clinical fields and decline to use them. It never receives them. A check can be
+          forgotten at a new call site; a projection cannot leak a field it never returned.
+          Field classification fails closed, so a field nobody thought about is withheld
+          rather than exposed.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band sec" id="measured">
+  <div class="inner">
+    <span class="eyebrow">Measured, not claimed</span>
+    <h2>The number that matters is the one that didn&rsquo;t fire.</h2>
+    <div class="figs">
+      <div class="fig"><span class="v">36/36</span>
+        <span class="k">Real skills passed clean. A gate with false positives gets switched
+          off by the person it protects</span></div>
+      <div class="fig"><span class="v">193</span>
+        <span class="k">Runs since 22 August on an unbroken hourly schedule</span></div>
+      <div class="fig"><span class="v">161</span>
+        <span class="k">Tests, none of which need a cloud account to run</span></div>
+      <div class="fig"><span class="v">12</span>
+        <span class="k">Of 25 assessed sessions would have been denied, caught before
+          submission</span></div>
+    </div>
+    <p class="clockfoot" style="margin-top:2.6rem">One of those denials passes every rule
+      check: eligible student, licensed provider, correct units, a properly written note.
+      It is still a denial, because the note describes a group session while the IEP
+      authorises individual. No pattern matches a story &mdash; which is the whole argument
+      for spending a model call.</p>
+  </div>
+</section>
+
+<section class="band sec" id="limits">
+  <div class="inner">
+    <span class="eyebrow">Honest limits</span>
+    <h2>Stated plainly, because several read as finished from the architecture alone.</h2>
+    <dl class="ledger">
+      <div class="row"><dt>Multi-tenancy</dt>
+        <dd>None. Every collection is global, so a second district would read the
+          first one&rsquo;s cases. One district is fine; two is a breach.</dd></div>
+      <div class="row"><dt>Agent identity</dt>
+        <dd>Registry-declared, not attested. What the gateway enforces is a scope
+          table, not zero-trust.</dd></div>
+      <div class="row"><dt>Medicaid billing consent</dt>
+        <dd>Not modelled. IDEA &sect;300.154 requires a consent to bill that is separate
+          from consent to evaluate; the readiness gate does not yet check it.</dd></div>
+      <div class="row"><dt>State rules</dt>
+        <dd>Three of the four are invented stand-ins that exercise the counting engine.
+          Only the federal sixty-day baseline is accurate.</dd></div>
+      <div class="row"><dt>Delivery</dt>
+        <dd>Implemented behind a human approval gate and exercised end to end, but the
+          public demo runs the file driver and is read-only, so nothing leaves the
+          machine.</dd></div>
+      <div class="row"><dt>Procurement</dt>
+        <dd>No SIS integration, no FERPA review, no signed data privacy agreement, and
+          no SOC&nbsp;2 &mdash; which 78% of district technology officers require.</dd></div>
+    </dl>
+    <p class="clockfoot" style="margin-top:2.4rem">What is real: it runs unattended on
+      Google Cloud, the deadline arithmetic is correct and tested, the gate&rsquo;s numbers
+      are measured against real corpora, and the projection genuinely withholds clinical
+      fields rather than asking an agent not to look at them.</p>
+  </div>
+</section>
+
+<section class="band close">
+  <div class="inner">
+    <h2>That coordinator is never getting a compliance team.</h2>
+    <p class="lede">Every record in the demo is synthetic. No real student record was used
+      at any point.</p>
+    <div class="cta">
+      <a class="btn" href="https://agentx-dashboard-dijsyl2kwq-uc.a.run.app">
+        Open the live demo &rarr;</a>
+      <a class="btn line" href="https://github.com/Aditya-galaxy/Hopscotch">Read the source</a>
+    </div>
+  </div>
+</section>
+
+<footer class="band">
+  <div class="inner">
+    <span>Hopscotch</span>
+    <span>Agents on Cloud Run &amp; Agent Engine</span>
+    <span class="sp">All data synthetic</span>
+  </div>
+</footer>
