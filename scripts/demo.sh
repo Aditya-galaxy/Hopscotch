@@ -9,6 +9,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+OPEN_TABS=0
+[ "${1:-}" = "--tabs" ] && OPEN_TABS=1
+
 PROJECT="${GOOGLE_CLOUD_PROJECT:-kronagent}"
 PORT="${PORT:-8080}"
 PY=".venv/bin/python"
@@ -86,6 +89,37 @@ cat <<EOF
   Say so out loud -- it runs hourly anyway, so it is not a workaround.
 
 EOF
+
+if [ "$OPEN_TABS" = "1" ]; then
+  bold "Opening the console tabs"
+  C="https://console.cloud.google.com"
+  Q='resource.labels.job_name%3D"agentx-tick" AND textPayload%3A"aiplatform.googleapis.com"'
+  for u in \
+    "https://agentx-dashboard-dijsyl2kwq-uc.a.run.app" \
+    "$C/run/jobs/details/us-central1/agentx-tick/executions?project=$PROJECT" \
+    "$C/cloudscheduler?project=$PROJECT" \
+    "$C/logs/query;query=$Q?project=$PROJECT" \
+    "$C/traces/list?project=$PROJECT" \
+    "$C/firestore/databases/-default-/data?project=$PROJECT"
+  do
+    open "$u" 2>/dev/null && ok "$(echo "$u" | cut -c1-72)"
+    sleep 1
+  done
+  echo
+  bad "Check the console account top-right before filming."
+  bad "Model Armor read is DENIED for brightflame.team@gmail.com -- if you plan"
+  bad "to film that page, open it now. The blocked log line is better evidence."
+  echo
+fi
+
+bold "Evidence the backend is live on Google Cloud"
+EXECS=$(gcloud run jobs executions list --job=agentx-tick --region=us-central1 \
+          --project="$PROJECT" --format="value(metadata.name)" 2>/dev/null | wc -l | tr -d " ")
+ok "Cloud Run job executions to date: $EXECS"
+SCHED=$(gcloud scheduler jobs list --location=us-central1 --project="$PROJECT" \
+          --format="value(state)" 2>/dev/null | head -1)
+ok "Cloud Scheduler agentx-hourly: ${SCHED:-unknown}"
+echo
 
 bold "Before you hit record"
 cat <<'EOF'

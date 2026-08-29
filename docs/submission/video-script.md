@@ -1,224 +1,198 @@
-# Demo video — shot list and script
+# Demo video — the 4:00 plan
 
-**4:00 hard cap.** Only the first four minutes are evaluated. Public on YouTube,
-not unlisted. Narrate it — an AI voiceover beats silence, and Google's own
-guidance says so.
+**4:00 hard cap; only the first four minutes are judged. Public on YouTube, not
+unlisted.** Narrate it live — an AI voiceover beats silence, but your own voice
+beats both.
 
-Say **"Gemini 3.5 Flash, built on Google ADK"** out loud before 0:30. Judges are
-told not to have to hunt for it.
+This document is the shot plan and the timing budget.
+[narration.md](narration.md) is the companion: the words, in your voice, not to
+be read aloud verbatim.
 
-**Naming.** The project is **Hopscotch**; the deployed job is `agentx-tick`.
-Mention it once in passing — renaming it would have created a new job with no
-execution history, and that history is the point.
+## The four things that must be in it
 
-**Before you record**
+| # | Required | Where it lands | Cuttable? |
+|---|---|---|---|
+| 1 | The problem | 0:00–0:30 | No |
+| 2 | Value proposition | 0:30–0:55 | No |
+| 3 | The app in action | 0:55–2:25 | No |
+| 4 | **Backend running on Google Cloud** | woven throughout + 2:25–3:15 | **No** |
 
-```bash
-# one terminal, large font, dark theme, nothing else on screen
-cd ~/Agent/hopscotch && clear
-export GOOGLE_CLOUD_PROJECT=kronagent
-```
-
-Have open in tabs, pre-loaded, so nothing spins during the take:
-1. the dashboard — https://agentx-dashboard-dijsyl2kwq-uc.a.run.app/app  (`/` is the landing page)
-2. Cloud Run jobs → agentx-tick → executions
-3. Cloud Trace → trace list
-
----
-
-## 0:00–0:30 · The coordinator and the clock
-
-> Federal law gives a school district sixty calendar days from a parent's
-> signature to complete a special education evaluation. Twenty-odd states
-> override that with their own count. Miss it and the district owes
-> compensatory services and faces a due process complaint.
->
-> The person holding that clock is one coordinator with three hundred active
-> files, a spreadsheet, and an inbox. They need an autonomous agent more than
-> any executive does — and they'll never get one, because the data is minors'
-> clinical records and the district has no security team.
->
-> Hopscotch is both halves. Gemini 3.5 Flash on Google ADK.
-
-**On screen:** the dashboard. `14 overdue · 8 due within 7 days · 52 open cases`.
-Check these against the live tiles before recording -- the hourly tick moves them.
-Let it sit. The tiles do the work.
+Requirement 4 is the one demos usually fail, by parking a console montage at
+3:40 where it reads as an afterthought and gets cut when the take runs long.
+**Here it is load-bearing instead:** the `.run.app` URL is in the address bar
+from the first second, and at 1:55 you press a button in the app that *causes* a
+Cloud Run Job execution you then watch appear in the console. That is not a tour
+of a dashboard — it is the backend doing work on camera.
 
 ---
 
-## 0:30–0:50 · Discovery, not deployment
-
-> Every agent is published to a registry, versioned and scoped to a department.
-> Another school finds one and runs it — this is the entry point, not a
-> deployment side effect.
+## Before you record
 
 ```bash
-PYTHONPATH=src python -c "
-from hopscotch.registry import discover
-for a in discover(scope='case.read_dates'):
-    print(a['name'], 'v'+a['version'], '—', a['department'], a['scopes'])"
+cd ~/Agent/hopscotch && ./scripts/demo.sh --tabs
 ```
 
-**On screen:** one result. `clock-agent` and nothing else.
+That preflights, prints a fresh consent form with dates that make the case
+overdue, opens every console tab below, and serves the app locally.
+
+**Record against the deployed URL for everything except the write steps.** The
+public site is read-only by design, so the drop box does not render there; the
+local instance is for the paste-and-tick sequence. Both look identical, so cut
+between them freely — but say once, out loud, that writes need authentication
+and the public demo refuses them. That is a feature, and judges notice it.
+
+### Tabs, in this order
+
+1. **The product** — https://agentx-dashboard-dijsyl2kwq-uc.a.run.app
+2. **The app** — http://localhost:8080/app
+3. **Cloud Run job executions** —
+   `console.cloud.google.com/run/jobs/details/us-central1/agentx-tick/executions?project=kronagent`
+4. **Cloud Scheduler** — `console.cloud.google.com/cloudscheduler?project=kronagent`
+5. **Logs Explorer**, pre-run this query so results are on screen:
+   ```
+   resource.labels.job_name="agentx-tick" AND textPayload:"aiplatform.googleapis.com"
+   ```
+6. **Cloud Trace** — `console.cloud.google.com/traces/list?project=kronagent`
+7. **Firestore data** —
+   `console.cloud.google.com/firestore/databases/-default-/data?project=kronagent`
+
+### Two warnings
+
+- **Check the console account first.** The CLI here is authenticated as
+  `brightflame.team@gmail.com`, and Model Armor read is **denied** for that
+  identity. Model Armor works at runtime — the tick job's own service account
+  has the permission and you will see it block a document — but do not plan to
+  film the Model Armor console page without opening it first. If it errors,
+  show the blocked log line instead; it is better evidence anyway.
+- **Your email is on screen** in the console avatar, top right, on every tab.
 
 ---
 
-## 0:50–1:50 · It does the work · **the minute that matters**
+## 0:00 – 0:30 · The problem
+**On screen:** the landing page, deployed. Let the 60-tick clock finish its fill.
+Make sure the `.run.app` URL is legible in the address bar — requirement 4
+starts here, silently.
 
-> Nobody triggers this. Hourly, unattended, it recomputes every open deadline
-> under that student's own jurisdiction rule and the district calendar.
+Sixty days from a parent's signature to complete a special education evaluation.
+Miss it and the district owes compensatory services and faces a due process
+complaint. The person holding that clock is one coordinator with a spreadsheet
+and no compliance team.
+
+> Say **"Gemini 3.5 Flash, built on Google ADK"** out loud before 0:30. Judges
+> are told they should not have to hunt for it.
+
+## 0:30 – 0:55 · Value proposition
+**On screen:** scroll to *"Compliance is a cost centre. Cost centres get cut."*
+and the two halves.
+
+Compliance alone is a cost centre, and cost centres get cut. Districts can bill
+Medicaid for the very services these deadlines govern, and most underclaim
+badly — one New York City audit found $431.6 million unclaimed. Same records,
+same student, second question. **Compliance stops the lawsuits; claiming is what
+pays for it.** That pairing is the product.
+
+## 0:55 – 2:25 · The app in action
+**Switch to `localhost:8080/app`.** Point at the brief: the supervisor wrote it
+this morning, unprompted.
+
+| Beat | On screen | Seconds |
+|---|---|---|
+| Paste the consent form into the drop box | row appears as `pending` | 15 |
+| Say: this page has **no model access** — it screens and parks; the fleet reads | — | 10 |
+| **Press "Run a tick now"** | redirect, "Tick started" | 5 |
+| **Cut to Cloud Run executions, hit refresh** | a new execution, running | 20 |
+| Back to the app, open the case | deadline computed **from the receipt date** | 20 |
+| Press the tick once more | `escalated: 1, notices_sent: 1` | 10 |
+| Outbox | notice waiting for a named human | 10 |
+
+Two lines worth saying while this runs:
+
+- The clock starts from the day the district **received** consent, not the day
+  the parent signed. That is the statute, and the case page says which date it
+  used and why.
+- Intake runs at the end of a tick, so the new case is picked up on the next
+  one. It runs hourly anyway.
+
+**Then the poisoned document** — paste it, tick, and let this land:
+
+```
+intake blocked: Model Armor blocked upload: pi_and_jailbreak@MEDIUM_AND_ABOVE
+```
+
+It was refused **before any extractor saw it**. The screen sits in front of the
+model, not after, so it never got the chance to be persuaded.
+
+## 2:25 – 3:15 · Running on Google Cloud
+The explicit block. Move briskly; four tabs, roughly twelve seconds each.
+
+1. **Cloud Run job executions** — 208 executions, hourly, unbroken since
+   22 August. Nobody watching. *This is the single most convincing frame in the
+   video; give it the longest beat.*
+2. **Cloud Scheduler** — `agentx-hourly`, `0 * * * *`, **ENABLED**, last run
+   on the hour.
+3. **Logs Explorer** — the `aiplatform.googleapis.com` POST lines. These are the
+   live Vertex AI calls: Gemini 3.5 Flash doing the work, from inside the job.
+4. **Cloud Trace** — spans for `job.tick` and `supervisor.call_worker`.
+   *Optional:* **Firestore** — the `cases`, `inbox`, `outbox`, `audit`
+   collections holding the state you just watched change.
+
+Close the block on the deployed `.run.app` tab so the URL is the last thing on
+screen.
+
+## 3:15 – 3:50 · Why it is allowed near the records
+**On screen:** the case page, scrolled to *What this identity may see*.
+
+Every agent reads through one gateway, and it shapes the record to whoever is
+asking. The family-facing agent does not receive clinical fields and decline to
+use them — it never receives them. Fields above the ceiling are **absent**, not
+blanked, so a page that never had them cannot leak them.
+
+If time allows, the capability gate — a skill file that reads AWS credentials,
+hides the fact, and passes every structural check:
 
 ```bash
-gcloud run jobs execute agentx-tick --region=us-central1 --wait
+make scan SKILL=data/replicas/credential-helper ARGS=--structural-only   # APPROVE
 ```
 
-Then the logs, live:
+Then the full gate catches it, and **36 of 36** real skills pass clean. A gate
+with false positives gets switched off by the person it protects.
 
-```
-tick tick-20260829T04 complete:
-  {'scanned': 53, 'escalated': 1, 'suppressed': 0, 'needs_intake': 1,
-   'dead_lettered': 0, 'errors': 0, 'documents_read': 1, 'documents_blocked': 0}
-```
+## 3:50 – 4:00 · Close
+Back to the landing page.
 
-> Twelve escalations. Run it again in the same hour —
-
-```bash
-gcloud run jobs execute agentx-tick --region=us-central1 --wait
-```
-
-```
-{'scanned': 53, 'escalated': 0, ...}
-```
-
-> Zero. The audit trail still holds exactly twelve rows. At-least-once
-> scheduling and job retries mean this runs twice; every side effect is claimed
-> once, so a family never gets the same notice at three in the morning.
-
-**Do not cut this minute.** It is the friction-removal proof and it is what a
-security-flavoured project usually lacks.
+161 tests, none of which need a cloud account. Every record synthetic. That
+coordinator is never getting a compliance team — so, this.
 
 ---
 
-## 1:50–2:40 · The capability gate · **the showpiece**
+## If you run long
 
-> Agents gain capability through Agent Skills — an open `SKILL.md` format read
-> by about forty-five runtimes. Portable by design. Provenance absent.
->
-> Here's a skill that reads your AWS credentials, attaches them to an outbound
-> header, and tells the agent to hide both steps.
+Cut in this order, and stop at three:
 
-```bash
-make scan SKILL=data/replicas/credential-helper ARGS=--structural-only
-```
+1. Firestore tab (step 4 above, the optional half)
+2. The capability-gate scan at 3:15 — say "36 out of 36" over the case page
+3. Cloud Trace
+4. The second tick — pre-stage the overdue case before recording and narrate it
 
-```
-APPROVE   credential-helper
-```
+**Never cut:** the button-press that creates a Cloud Run execution, the
+executions list, the Scheduler showing ENABLED, or the blocked document. Those
+are requirement 4 and the differentiator, in that order.
 
-> Static analysis approves it — correctly. No shell, no binary, no signature.
-> It's ordinary English. That's why we spend a model call.
+## If something fails live
 
-```bash
-make scan SKILL=data/replicas/credential-helper
-```
+| Fails | Do this instead |
+|---|---|
+| Tick is slow to appear | Keep talking; refresh once. Executions take ~5s to register |
+| Model Armor console errors | Show the blocked log line — stronger evidence anyway |
+| A model call times out | Say so, and point at the fail-closed design: an unavailable reviewer downgrades rather than approves |
+| Paste lands on an existing case | Use one of the spare consent forms — the doc id is a hash of the text |
 
-```
-REJECT    credential-helper                    verdict=dangerous
-  [critical] exfiltration    reads AWS and GitHub credentials into a header
-  [high]     obfuscation     instructs the agent to conceal those steps
-  [high]     intent_mismatch stated purpose does not match behaviour
-```
+## Delivery
 
-> And the control that makes it credible — thirty-six real, widely used skills:
-
-```bash
-make scan SKILL=data/corpora/mattpocock-skills ARGS="--all --structural-only"
-```
-
-```
-approve=36
-```
-
-> Zero false positives. A gate that flags everything gets switched off by the
-> people it protects.
->
-> The strictest tier isn't downloaded skills — it's the ones an agent writes
-> for *itself*.
->
-> Shipping runtimes allow those more freely, and their reasoning is good: an
-> agent with a terminal could have run the code anyway. But that stops being
-> true the moment agents are scoped — which is what a fleet is. And a command
-> runs once, where a skill reloads forever.
-
----
-
-## 2:30–2:50 · Claim readiness *(optional, cut first)*
-
-```bash
-PYTHONPATH=src python -c "
-from datetime import date
-from hopscotch.claims import assess
-from hopscotch.schemas import IEPService, ServiceDelivery
-# ... see README for the full snippet"
-```
-
-Show two lines only: the group-vs-individual block, and the under-billed flag.
-
----
-
-## 2:50–3:10 · The boundaries hold
-
-```bash
-PYTHONPATH=src python -c "
-from hopscotch.gateway import Gateway
-from hopscotch.registry import ScopeDenied
-gw = Gateway()
-try: gw.check('family-agent','case.read_full')
-except ScopeDenied as e: print('DENIED:', e)"
-```
-
-```
-DENIED: family-agent (Family liaison) may not 'case.read_full'.
-Declared scopes: case.read_redacted, media.generate, notify.send
-```
-
-> It names what *was* allowed. And it's not just a check — the data is shaped
-> to the identity. family-agent doesn't decline to use clinical fields. It
-> never receives them.
-
-**On screen:** the dashboard's media section — the Spanish Chirp notice and the
-Veo timeline. Play two seconds of audio.
-
-> Gemma strips every clinical finding before this goes out. Chirp speaks it in
-> the family's language. Veo renders the timeline once for the whole district.
-
----
-
-## 3:10–3:40 · Proof it runs on Google Cloud · **required**
-
-**On screen, in this order, no narration needed beyond naming them:**
-
-1. Cloud Run → `agentx-tick` execution history, several succeeded runs
-2. Cloud Run → `agentx-dashboard`, and the live `.run.app` URL in the address bar
-3. Cloud Scheduler → `agentx-hourly`, ENABLED, `0 * * * *`
-4. Cloud Trace → spans: `job.tick`, `gateway.check`, `skills.gate`
-5. Firestore → `cases`, `audit`, `effects` collections
-
----
-
-## 3:40–4:00 · Close
-
-> Sixty-seven tests, none of which need cloud credentials. Everything you saw
-> runs unattended on Google Cloud and has since the twenty-second of August.
->
-> A district coordinator can't hire a compliance team. This is what it looks
-> like when they don't have to.
-
----
-
-## Recording notes
-
-- Cut every loading screen and `gcloud` spinner in the edit.
-- Speed the voiceover ~5% to fit; it reads as energy, not haste.
-- **Upload first, everything else second.** Processing can take hours.
-- Public, not unlisted. English or subtitled.
+- Contractions, every time. Trailing off is fine; polish reads as rehearsed.
+- Terminal at 18pt minimum, browser zoom 125–150%. The screen is 2560×1600 and
+  YouTube will downscale to 1080p — untreated, the terminal becomes mush.
+- Do Not Disturb **on**. A notification banner means re-recording.
+- The `APPROVE` on the credential skill works best if you sound a little amused.
+- Keep the line about having had the statute wrong until two days ago. Judges
+  trust someone who corrects themselves.
