@@ -50,7 +50,15 @@ FIELD_SENSITIVITY: dict[str, Sensitivity] = {
     "consent_signed_on": Sensitivity.ADMINISTRATIVE,
     "received_on": Sensitivity.ADMINISTRATIVE,
     "confidence": Sensitivity.ADMINISTRATIVE,
-    "source_document": Sensitivity.ADMINISTRATIVE,
+    # The RAW intake document, verbatim. It is the least redacted thing in the
+    # record: the student's actual name, the referral reason in the parent's
+    # own words, sometimes an address. It was classified ADMINISTRATIVE, which
+    # explicitly downgraded the most sensitive field in the case below the
+    # fail-closed default -- and the case page rendered it, name and all, to an
+    # identity whose header says "clinical detail withheld". Everything derived
+    # FROM this document is classified individually below; the document itself
+    # is a superset of all of them, so it takes the highest tier of any part.
+    "source_document": Sensitivity.CLINICAL,
     "referral_reason": Sensitivity.CLINICAL,
 }
 

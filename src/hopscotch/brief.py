@@ -169,17 +169,26 @@ def generate(*, today: date | None = None, store=None) -> DailyBrief:
 def save(brief: DailyBrief) -> None:
     from google.cloud import firestore
 
-    from .config import settings
+    from .store import _client, client_kwargs  # noqa: F401
     db = firestore.Client(**client_kwargs())
     db.collection("briefs").document(brief.brief_date).set(
         brief.model_dump(mode="json"))
 
 
 def latest() -> DailyBrief | None:
-    """Most recent brief, for the dashboard. None rather than a fabricated one."""
+    """Most recent brief, for the dashboard. None rather than a fabricated one.
+
+    The failure here is LOGGED, not swallowed. A bare `except Exception: return
+    None` hid a NameError in this function for four days: `client_kwargs` was
+    imported inside one function and used in three, so both save() and latest()
+    raised. The dashboard reported "No brief yet" while four briefs sat in
+    Firestore, and the daily brief -- the thing the supervisor exists to produce
+    -- silently stopped being written on 25 Aug. "No data" and "this code is
+    broken" must not look the same from the outside.
+    """
     from google.cloud import firestore
 
-    from .config import settings
+    from .store import client_kwargs
     try:
         db = firestore.Client(**client_kwargs())
         rows = [d.to_dict() for d in db.collection("briefs").limit(30).stream()]
@@ -187,5 +196,6 @@ def latest() -> DailyBrief | None:
             return None
         rows.sort(key=lambda r: r.get("brief_date", ""), reverse=True)
         return DailyBrief.model_validate(rows[0])
-    except Exception:
+    except Exception as exc:
+        log.warning("brief lookup failed, dashboard will show none: %r", exc)
         return None

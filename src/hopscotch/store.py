@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from typing import Iterator
 
 from google.api_core import exceptions as gexc
+from functools import lru_cache
+
 from google.cloud import firestore
 
 from .config import settings
@@ -44,8 +46,25 @@ def client_kwargs() -> dict:
     return kwargs
 
 
+@lru_cache(maxsize=4)
+def _client_for(key: tuple) -> firestore.Client:
+    return firestore.Client(**dict(key))
+
+
 def _client() -> firestore.Client:
-    return firestore.Client(**client_kwargs())
+    """The Firestore client, reused.
+
+    This used to build a NEW client on every call, and every store function
+    calls it -- so rendering one dashboard page constructed dozens of clients,
+    each paying gRPC channel setup and credential resolution. That was 26
+    seconds of a 30-second page load; the queries themselves are fast.
+
+    Cached on the connection kwargs rather than globally, so a test or a process
+    that changes project or database still gets its own client instead of
+    silently reusing one pointed at the wrong place. The client is thread-safe
+    and intended to be long-lived.
+    """
+    return _client_for(tuple(sorted(client_kwargs().items())))
 
 
 def upsert_case(case: Case) -> None:

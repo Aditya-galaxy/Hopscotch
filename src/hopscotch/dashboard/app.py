@@ -16,6 +16,7 @@ act.
 from __future__ import annotations
 
 import html
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request
@@ -38,86 +39,170 @@ app.add_middleware(SecurityHeaders)
 e = html.escape
 
 CSS = """
-.flash{background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent);
-border-radius:4px;padding:9px 13px;font-size:.88rem;margin:0 0 14px}
-.drop{display:flex;flex-direction:column;gap:8px;max-width:780px;margin-bottom:10px}
-.stack{display:flex;flex-direction:column;gap:6px;max-width:560px;margin-bottom:8px}
-.row{display:flex;gap:6px;align-items:center}
-.drop textarea,.stack input,.stack textarea{font:inherit;font-size:.85rem;padding:7px 9px;
-border:1px solid var(--rule);border-radius:3px;background:var(--surface);
-color:var(--ink);width:100%}
-.back{font-size:.85rem;display:inline-block;margin-bottom:10px}
-:root{--paper:#F5F4F0;--surface:#fff;--sunk:#EFEEE9;--ink:#1A1F1C;--soft:#4A5049;
---muted:#767C74;--rule:#DBDCD5;--accent:#1F5C3D;--accent-soft:#E3EDE7;
---risk:#A03A22;--risk-soft:#F5E5E0;--warn:#8A6A1F;--warn-soft:#F5EEDD}
-@media(prefers-color-scheme:dark){:root{--paper:#141714;--surface:#1C201B;--sunk:#232823;
---ink:#E9EAE4;--soft:#B6BBB3;--muted:#878D85;--rule:#2E332D;--accent:#6FB68C;
---accent-soft:#1D2C23;--risk:#E08063;--risk-soft:#2E1D18;--warn:#D9B45E;--warn-soft:#2A2317}}
+:root{
+  --paper:#FAFAF8; --surface:#FFFFFF; --sunk:#F3F3EF; --ink:#141815;
+  --soft:#454B46; --muted:#767C74; --rule:#E3E4DE; --rule-soft:#EDEEE9;
+  --accent:#1D5C3C; --accent-ink:#1D5C3C; --accent-soft:#E6F0EA;
+  --risk:#9C3520; --risk-soft:#FAE9E4; --warn:#7E5F17; --warn-soft:#F8F0DC;
+  --shadow:0 1px 2px rgba(20,24,21,.05), 0 1px 8px rgba(20,24,21,.04);
+  --shadow-lift:0 2px 4px rgba(20,24,21,.06), 0 8px 24px rgba(20,24,21,.06);
+}
+@media(prefers-color-scheme:dark){:root{
+  --paper:#0E110F; --surface:#171B18; --sunk:#1E231F; --ink:#ECEEE9;
+  --soft:#B9BEB6; --muted:#868C84; --rule:#2A302B; --rule-soft:#232823;
+  --accent:#7CC79B; --accent-ink:#7CC79B; --accent-soft:#16271D;
+  --risk:#EE9377; --risk-soft:#2E1B15; --warn:#E0BC69; --warn-soft:#2B2416;
+  --shadow:none; --shadow-lift:none;
+}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);
-font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
-.wrap{max-width:1120px;margin:0 auto;padding:22px 20px 90px}
-a{color:var(--accent)}
-header.top{display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;
-border-bottom:1px solid var(--rule);padding-bottom:14px;margin-bottom:18px}
-h1{font-size:1.35rem;margin:0;letter-spacing:-.01em}
-.whoami{margin-left:auto;font-size:.82rem;color:var(--muted);text-align:right}
-.whoami b{color:var(--ink)}
-h2{font-size:.74rem;margin:32px 0 10px;text-transform:uppercase;letter-spacing:.11em;
-color:var(--muted);font-weight:600}
-.sub{color:var(--muted);font-size:.87rem;margin:0 0 16px}
-.tiles{display:grid;gap:9px;grid-template-columns:repeat(auto-fit,minmax(124px,1fr))}
-.tile{background:var(--surface);border:1px solid var(--rule);border-radius:5px;padding:11px 13px}
-.tile .n{font-size:1.6rem;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.15}
-.tile .l{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.tile.hot{border-color:var(--risk)}.tile.hot .n{color:var(--risk)}
-.tile.warn{border-color:var(--warn)}.tile.warn .n{color:var(--warn)}
-.scroll{overflow-x:auto;border:1px solid var(--rule);border-radius:5px;background:var(--surface)}
-table{width:100%;min-width:660px;border-collapse:collapse;font-size:.88rem}
-th{text-align:left;font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;
-color:var(--muted);padding:9px 12px;border-bottom:1px solid var(--rule);background:var(--sunk);
-white-space:nowrap;font-weight:600}
-td{padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:middle}
+  font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+a{color:var(--accent-ink);text-underline-offset:2px}
+a:hover{text-decoration-thickness:2px}
+
+/* ---- masthead ---------------------------------------------------------- */
+header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:center;
+  padding:22px 0 18px;margin-bottom:24px;border-bottom:1px solid var(--rule)}
+.brandwrap{display:flex;align-items:center;gap:11px;min-width:0}
+.mark{width:30px;height:30px;border-radius:8px;background:var(--accent);
+  display:grid;place-items:center;flex:none;
+  color:#fff;font-weight:700;font-size:.95rem;letter-spacing:-.02em}
+@media(prefers-color-scheme:dark){.mark{color:#0E110F}}
+.brand h1{font-size:1.05rem;margin:0;font-weight:680;letter-spacing:-.015em;line-height:1.15}
+.brand{font-size:1.02rem;font-weight:680;letter-spacing:-.015em;line-height:1.1}
+.brand span{display:block;font-size:.73rem;font-weight:450;color:var(--muted);
+  letter-spacing:0;margin-top:2px}
+h1{font-size:1.32rem;margin:0;letter-spacing:-.02em;font-weight:640}
+.whoami{margin-left:auto;text-align:right;display:flex;align-items:center;gap:10px}
+.idchip{display:flex;flex-direction:column;align-items:flex-end;line-height:1.35}
+.idchip b{font-size:.83rem;font-weight:600}
+.idchip span{font-size:.73rem;color:var(--muted)}
+.avatar{width:32px;height:32px;border-radius:50%;flex:none;
+  background:var(--accent-soft);color:var(--accent-ink);
+  display:grid;place-items:center;font-size:.8rem;font-weight:700;
+  border:1px solid var(--rule)}
+
+/* ---- sections ---------------------------------------------------------- */
+h2{font-size:.95rem;margin:38px 0 12px;letter-spacing:-.01em;font-weight:650;
+  color:var(--ink);display:flex;align-items:baseline;gap:9px}
+h2::after{content:"";flex:1;height:1px;background:var(--rule-soft)}
+h3{font-size:.92rem;margin:26px 0 10px;font-weight:620;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:.875rem;margin:0 0 18px;max-width:74ch}
+
+/* ---- tiles ------------------------------------------------------------- */
+.tiles{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.tile{background:var(--surface);border:1px solid var(--rule);border-radius:10px;
+  padding:15px 17px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.tile::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:transparent}
+.tile .n{font-size:2rem;font-weight:660;font-variant-numeric:tabular-nums;
+  line-height:1.05;letter-spacing:-.03em}
+.tile .l{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);margin-top:5px;font-weight:600}
+.tile.hot::before{background:var(--risk)}.tile.hot .n{color:var(--risk)}
+.tile.warn::before{background:var(--warn)}.tile.warn .n{color:var(--warn)}
+
+/* ---- tables ------------------------------------------------------------ */
+.scroll{overflow-x:auto;border:1px solid var(--rule);border-radius:10px;
+  background:var(--surface);box-shadow:var(--shadow)}
+table{width:100%;min-width:660px;border-collapse:collapse;font-size:.875rem}
+th{text-align:left;font-size:.69rem;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);padding:11px 14px;border-bottom:1px solid var(--rule);
+  background:var(--sunk);white-space:nowrap;font-weight:650}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:middle}
 tr:last-child td{border-bottom:0}
 tbody tr:hover{background:var(--sunk)}
-.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
-.pill{display:inline-block;padding:2px 8px;border-radius:11px;font-size:.72rem;
-font-weight:600;white-space:nowrap}
-.pill.ok{background:var(--accent-soft);color:var(--accent)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-variant-numeric:tabular-nums;font-size:.93em}
+
+/* ---- pills ------------------------------------------------------------- */
+.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:.72rem;
+  font-weight:650;white-space:nowrap;border:1px solid transparent}
+.pill.ok{background:var(--accent-soft);color:var(--accent-ink)}
 .pill.warn{background:var(--warn-soft);color:var(--warn)}
 .pill.hot{background:var(--risk-soft);color:var(--risk)}
-.brief{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--accent);
-border-radius:5px;padding:15px 17px}
-.brief .hl{font-size:1.02rem;font-weight:600;line-height:1.4;margin-bottom:11px}
-.brief .grp{margin-top:11px}
-.brief .grp h4{margin:0 0 4px;font-size:.66rem;text-transform:uppercase;
-letter-spacing:.08em;color:var(--muted);font-weight:600}
-.brief ul{margin:0;padding-left:17px}
-.brief li{font-size:.87rem;color:var(--soft);margin-bottom:2px}
-.brief .by{margin-top:11px;font-size:.71rem;color:var(--muted)}
-.banner{border-radius:5px;padding:10px 13px;font-size:.84rem;margin-bottom:16px;
-background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn)}
+
+/* ---- the daily brief, the hero ----------------------------------------- */
+.brief{background:var(--surface);border:1px solid var(--rule);border-radius:12px;
+  padding:20px 22px;box-shadow:var(--shadow-lift);
+  border-top:3px solid var(--accent);margin-bottom:6px}
+.brief .hl{font-size:1.12rem;font-weight:640;line-height:1.42;letter-spacing:-.015em;
+  margin-bottom:14px;max-width:70ch}
+.brief .grp{margin-top:14px}
+.brief .grp h4{margin:0 0 5px;font-size:.68rem;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--muted);font-weight:650}
+.brief ul{margin:0;padding-left:18px}
+.brief li{font-size:.875rem;color:var(--soft);margin-bottom:3px}
+.brief li.more{color:var(--muted);font-style:italic}
+.brief .by{margin-top:16px;padding-top:12px;border-top:1px solid var(--rule-soft);
+  font-size:.73rem;color:var(--muted)}
+
+/* ---- notices ----------------------------------------------------------- */
+.banner{border-radius:9px;padding:11px 15px;font-size:.845rem;margin-bottom:18px;
+  background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn);
+  line-height:1.5}
 .banner b{color:inherit}
-.locked{background:var(--surface);border:1px dashed var(--rule);border-radius:5px;
-padding:13px 15px;color:var(--muted);font-size:.85rem}
-.locked code{background:var(--sunk);padding:1px 5px;border-radius:3px}
-.btn{font:inherit;font-size:.78rem;padding:4px 10px;border-radius:4px;cursor:pointer;
-border:1px solid var(--accent);background:var(--accent);color:#fff}
-.btn.ghost{background:transparent;color:var(--soft);border-color:var(--rule)}
+.flash{background:var(--accent-soft);border:1px solid var(--accent);
+  color:var(--accent-ink);border-radius:9px;padding:11px 15px;font-size:.875rem;
+  margin:0 0 18px;font-weight:520}
+.locked{background:var(--surface);border:1px dashed var(--rule);border-radius:10px;
+  padding:16px 18px;color:var(--muted);font-size:.87rem}
+.locked code{background:var(--sunk);padding:1px 6px;border-radius:4px;font-size:.9em}
+
+/* ---- forms and buttons ------------------------------------------------- */
+.drop{display:flex;flex-direction:column;gap:10px;max-width:820px;margin-bottom:12px}
+.stack{display:flex;flex-direction:column;gap:8px;max-width:580px;margin-bottom:10px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.drop textarea,.stack input,.stack textarea{font:inherit;font-size:.875rem;
+  padding:11px 13px;border:1px solid var(--rule);border-radius:8px;
+  background:var(--surface);color:var(--ink);width:100%;box-shadow:var(--shadow)}
+.drop textarea:focus,.stack input:focus,.stack textarea:focus{outline:2px solid var(--accent);
+  outline-offset:-1px;border-color:var(--accent)}
+.drop textarea{min-height:132px;resize:vertical;line-height:1.55;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem}
+.btn{font:inherit;font-size:.83rem;font-weight:600;padding:8px 15px;border-radius:8px;
+  cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#fff;
+  box-shadow:var(--shadow);transition:filter .12s ease}
+@media(prefers-color-scheme:dark){.btn{color:#0E110F}}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:var(--surface);color:var(--soft);border-color:var(--rule)}
+.btn.ghost:hover{background:var(--sunk);filter:none}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 form.inline{display:inline}
-.fix{display:flex;gap:4px;align-items:center}
-.fix input{font:inherit;font-size:.75rem;padding:3px 6px;border:1px solid var(--rule);
-border-radius:4px;background:var(--paper);color:var(--ink);max-width:118px}
-.media{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(270px,1fr))}
-.card{background:var(--surface);border:1px solid var(--rule);border-radius:5px;padding:13px}
-.card h3{margin:0 0 3px;font-size:.87rem}
-.card p{margin:0 0 9px;color:var(--soft);font-size:.81rem}
-video,audio{width:100%;border-radius:4px}
-.empty{color:var(--muted);font-size:.85rem;padding:13px;text-align:center}
-footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--rule);
-color:var(--muted);font-size:.78rem}
-@media(max-width:640px){.wrap{padding:16px 14px 70px}.whoami{margin-left:0;text-align:left}}
+.field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:150px}
+.field>span{font-size:.71rem;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--muted);font-weight:650}
+.fixwrap summary{cursor:pointer;font-size:.74rem;color:var(--muted);list-style:none;
+  user-select:none;padding:3px 9px;border:1px solid var(--rule);border-radius:6px;
+  display:inline-block;white-space:nowrap}
+.fixwrap summary::-webkit-details-marker{display:none}
+.fixwrap summary:hover{background:var(--sunk);color:var(--soft)}
+.fixwrap[open] summary{margin-bottom:7px;color:var(--soft);background:var(--sunk)}
+.tickrow{margin-top:-2px}
+.hint{font-size:.78rem;color:var(--muted)}
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fix{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.fix input{font:inherit;font-size:.78rem;padding:5px 8px;border:1px solid var(--rule);
+  border-radius:6px;background:var(--paper);color:var(--ink);max-width:120px}
+.back{font-size:.85rem;display:inline-block;margin:20px 0 4px;font-weight:520}
+
+/* ---- media and misc ---------------------------------------------------- */
+.media{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:10px;
+  padding:16px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 4px;font-size:.9rem}
+.card p{margin:0 0 11px;color:var(--soft);font-size:.83rem}
+video,audio{width:100%;border-radius:7px}
+.empty{color:var(--muted);font-size:.87rem;padding:22px;text-align:center}
+footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--rule);
+  color:var(--muted);font-size:.79rem}
+@media(max-width:640px){
+  .wrap{padding:0 16px 64px}
+  h1{font-size:1.15rem}
+  .tile .n{font-size:1.7rem}
+  .whoami{margin-left:0;width:100%;justify-content:flex-start}
+}
 """
 
 
@@ -419,10 +504,20 @@ def _brief_block(who) -> str:
         return ('<div class=locked>No brief yet — the supervisor writes one on '
                 'the first tick of each day.</div>')
 
-    def grp(title, items):
+    def grp(title, items, cap=5):
+        """Show the first few and count the rest.
+
+        A brief that lists all fifteen overdue cases is not a brief -- it pushes
+        everything else below the fold and reads as a dump. The full list is the
+        caseload table directly underneath; this is the summary above it.
+        """
         if not items:
             return ""
-        lis = "".join(f"<li>{e(i)}</li>" for i in items)
+        shown, extra = items[:cap], len(items) - cap
+        lis = "".join(f"<li>{e(i)}</li>" for i in shown)
+        if extra > 0:
+            lis += (f'<li class=more>and {extra} more &mdash; '
+                    f'all of them in the caseload below</li>')
         return f"<div class=grp><h4>{e(title)}</h4><ul>{lis}</ul></div>"
 
     return (f"<div class=brief><div class=hl>{e(b.headline)}</div>"
@@ -444,12 +539,13 @@ def _caseload_block(who, cases) -> str:
         if can_fix:
             field = "consent_signed_on" if c["days"] is None else "due_on"
             label = "Set date" if c["days"] is None else "Override"
-            fix = (f"<form method=post action='/case/{e(c['ref'])}/correct' class=fix>"
+            fix = (f"<details class=fixwrap><summary>{label}</summary>"
+                   f"<form method=post action='/case/{e(c['ref'])}/correct' class=fix>"
                    f"<input type=hidden name=field value='{field}'>"
                    f"<input type=date name=value required aria-label='new date'>"
                    f"<input type=text name=reason placeholder='reason' required "
                    f"aria-label='reason'>"
-                   f"<button class='btn ghost'>{label}</button></form>")
+                   f"<button class='btn ghost'>Save</button></form></details>")
         flag = ('<span class="pill warn" title="human override">corrected</span> '
                 if c["corrected"] else "")
         rows += (f"<tr><td class=mono><a href='/case/{e(c['ref'])}'>{e(c['ref'])}</a></td>"
@@ -566,10 +662,12 @@ def _intake_block(who) -> str:
             "Parent signature date: 09/14/2026&#10;"
             "Received by district: 09/16/2026&#10;"
             "Reason: Teacher referral, written expression.'></textarea>"
-            "<span class=row><button class=btn>Queue for intake</button></span>"
-            "</form>"
-            "<form method=post action='/run/tick' class=row>"
-            "<button class='btn ghost'>Run a tick now</button></form>")
+            "<span class=row><button class=btn>Queue for intake</button>"
+            "</span></form>"
+            "<form method=post action='/run/tick' class='row tickrow'>"
+            "<button class='btn ghost'>Run a tick now</button>"
+            "<span class=hint>or wait for the hour &mdash; it runs either way</span>"
+            "</form>")
 
     return ("<h2>Drop a consent form</h2>"
             "<p class=sub>Paste it as it arrived — phone-photo OCR noise, "
@@ -712,23 +810,49 @@ def case_detail(student_ref: str, msg: str = "", who=Depends(principal)) -> str:
     if "case.write" in who.scopes and not read_only():
         log_form = (
             f"<h3>Log a session</h3>"
+            f"<p class=sub>What a provider records after seeing the student. The "
+            f"fleet assesses it against the IEP on the next tick and decides "
+            f"whether it would survive an audit.</p>"
             f"<form method=post action='/case/{e(student_ref)}/deliver' class=stack>"
-            f"<input name=service value='speech-language therapy, individual' "
-            f"required aria-label='service'>"
-            f"<input name=provider_type value='speech-language pathologist' "
-            f"required aria-label='provider type'>"
-            f"<input name=npi value='1234567890' required aria-label='provider NPI'>"
-            f"<span class=row><input name=minutes type=number value=30 required "
-            f"aria-label='minutes'><input name=units type=number value=2 required "
-            f"aria-label='units'></span>"
-            f"<textarea name=note rows=2 required aria-label='session note'>"
+            f"<label class=field><span>Service</span>"
+            f"<input name=service value='speech-language therapy, individual' required></label>"
+            f"<label class=field><span>Provider type</span>"
+            f"<input name=provider_type value='speech-language pathologist' required></label>"
+            f"<label class=field><span>Provider NPI</span>"
+            f"<input name=npi value='1234567890' required></label>"
+            f"<span class=row>"
+            f"<label class=field><span>Minutes documented</span>"
+            f"<input name=minutes type=number value=30 required></label>"
+            f"<label class=field><span>Units billed</span>"
+            f"<input name=units type=number value=2 required></label></span>"
+            f"<label class=field><span>Session note</span>"
+            f"<textarea name=note rows=3 required>"
             f"Individual session. Targeted /r/ in structured phrases, 70% accuracy "
-            f"with minimal cueing.</textarea>"
+            f"with minimal cueing.</textarea></label>"
             f"<span class=row><button class=btn>Log session</button></span></form>")
 
+    def _leaves(val, prefix="", out=None):
+        """Flatten to leaf fields.
+
+        str() of a nested dict is a Python repr truncated mid-key -- unreadable,
+        and this table is the clearest proof in the product that the gateway
+        withholds fields rather than blanking them. Naming each leaf is the
+        whole point: a reader can see `consent.received_on` is present and no
+        clinical field is.
+        """
+        out = [] if out is None else out
+        if isinstance(val, dict):
+            for k, v in val.items():
+                _leaves(v, f"{prefix}.{k}" if prefix else str(k), out)
+        elif isinstance(val, (list, tuple)):
+            out.append((prefix, ", ".join(str(x) for x in val) if val else "—"))
+        else:
+            out.append((prefix, "—" if val in (None, "") else str(val)))
+        return out
+
     projected = "".join(
-        f"<tr><td class=mono>{e(k)}</td><td class=mono>{e(str(v)[:80])}</td></tr>"
-        for k, v in sorted(view.items()))
+        f"<tr><td class=mono>{e(k)}</td><td class=mono>{e(v[:90])}</td></tr>"
+        for k, v in sorted(_leaves(view)))
 
     return f"""<!doctype html><html lang=en><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
@@ -739,10 +863,17 @@ def case_detail(student_ref: str, msg: str = "", who=Depends(principal)) -> str:
 {_banner()}
 {_flash(msg)}
 <header class=top>
-  <h1>{e(student_ref)}</h1>
-  <div class=whoami><b>{e(who.email)}</b><br>{e(who.role.value)}</div>
+  <div class=brandwrap>
+    <div class=mark>H</div>
+    <div class=brand><h1>{e(student_ref)}</h1>
+      <span>{e(case.school_code)} &middot; {e(case.jurisdiction)}</span></div>
+  </div>
+  <div class=whoami>
+    <div class=idchip><b>{e(who.email)}</b><span>{e(who.role.value)}</span></div>
+    <div class=avatar>{e(who.email[:1].upper())}</div>
+  </div>
 </header>
-<p class=sub>{e(case.school_code)} · {e(case.jurisdiction)} · {e(case.stage.value)}</p>
+<p class=sub>Stage: {e(case.stage.value)}</p>
 <div class=tiles>
   <div class=tile><div class=n>{e(d.due_on.isoformat()) if d else '—'}</div>
     <div class=l>due</div></div>
@@ -773,10 +904,30 @@ gateway never returns them, so they cannot leak from a page that never had them.
 
 @app.get("/", response_class=HTMLResponse)
 def index(msg: str = "", who=Depends(principal)) -> str:
-    try:
-        cases = _cases_for(who)
-    except Exception:
-        cases = []
+    # Every block below is an independent set of Firestore reads. Rendered
+    # inline in the f-string they ran one after another, which is most of the
+    # page load; they are I/O-bound, so a small pool collapses them to roughly
+    # the slowest one. FastAPI already runs this sync endpoint in a worker
+    # thread, and the Firestore client is thread-safe and now shared.
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        f_cases = pool.submit(_cases_for, who)
+        f_brief = pool.submit(_brief_block, who)
+        f_intake = pool.submit(_intake_block, who)
+        f_outbox = pool.submit(_outbox_block, who)
+        f_claims = pool.submit(_claims_block, who)
+        f_batch = pool.submit(_claim_batch_block, who)
+        f_audit = pool.submit(_audit_block, who)
+
+        try:
+            cases = f_cases.result()
+        except Exception:
+            cases = []
+        brief_html = f_brief.result()
+        intake_html = f_intake.result()
+        outbox_html = f_outbox.result()
+        claims_html = f_claims.result()
+        batch_html = f_batch.result()
+        audit_html = f_audit.result()
 
     overdue = sum(1 for c in cases if c["days"] is not None and c["days"] < 0)
     week = sum(1 for c in cases if c["days"] is not None and 0 <= c["days"] <= 7)
@@ -789,16 +940,23 @@ def index(msg: str = "", who=Depends(principal)) -> str:
 <title>{PROJECT_NAME} — special education compliance</title><style>{CSS}</style>
 <body><div class=wrap>
 <header class=top>
-  <h1>Special education compliance</h1>
-  <div class=whoami><b>{e(who.email)}</b><br>{e(who.role.value)} ·
-    {"clinical detail visible" if clinical else "clinical detail withheld"}</div>
+  <div class=brandwrap>
+    <div class=mark>H</div>
+    <div class=brand><h1>{PROJECT_NAME}</h1>
+      <span>Special education compliance &middot; Medicaid claiming</span></div>
+  </div>
+  <div class=whoami>
+    <div class=idchip><b>{e(who.email)}</b>
+      <span>{e(who.role.value)} &middot;
+        {"clinical detail visible" if clinical else "clinical detail withheld"}</span></div>
+    <div class=avatar>{e(who.email[:1].upper())}</div>
+  </div>
 </header>
 {_banner()}
 {_flash(msg)}
 <p class=sub>{date.today().isoformat()} · every row below was written by an
 unattended agent, not a person.</p>
-{_brief_block(who)}
-{_intake_block(who)}
+{brief_html}
 <h2>At a glance</h2>
 <div class=tiles>
   <div class="tile {'hot' if overdue else ''}"><div class=n>{overdue}</div><div class=l>overdue</div></div>
@@ -806,12 +964,13 @@ unattended agent, not a person.</p>
   <div class=tile><div class=n>{len(cases)}</div><div class=l>open cases</div></div>
   <div class="tile {'warn' if intake else ''}"><div class=n>{intake}</div><div class=l>needs intake</div></div>
 </div>
+{intake_html}
 <h2>Caseload</h2>
 {_caseload_block(who, cases)}
-{_outbox_block(who)}
-{_claims_block(who)}
-{_claim_batch_block(who)}
-{_audit_block(who)}
+{outbox_html}
+{claims_html}
+{batch_html}
+{audit_html}
 <h2>Family-facing media</h2>
 <div class=media><div class=card><h3>Evaluation timeline</h3>
 <p>Veo 3.1, generated once for the district — the timeline is identical for
