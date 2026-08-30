@@ -258,7 +258,7 @@ roadmap: **[docs/product-requirements.md](docs/product-requirements.md)** · sou
 
 | Track requirement | Product | Where |
 |---|---|---|
-| Agent Registry | Agent Registry | `registry/*.agent.yaml` |
+| Agent Registry | **Agent Registry** — both engines listed in Google's managed registry (`scripts/geap.sh` proves it live); the per-agent scope model is ours | `registry/*.agent.yaml` |
 | Agent Runtime | **Agent Engine Runtime** — supervisor deployed and serving | `deploy/deploy_agent_engine.py` |
 | Memory Bank | `VertexAiMemoryBankService` | ADK 2.7.1 |
 | Agent Identity | registry-declared scopes (*not* attested — [see limits](docs/architecture.md#honest-limits)) | `registry/*.agent.yaml` → `spec.identity` |

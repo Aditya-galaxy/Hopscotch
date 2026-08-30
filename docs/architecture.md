@@ -295,10 +295,23 @@ the boundary.
 
 ## Agent Registry: what is managed, what is substituted
 
-Google's managed **Agent Registry** is part of the Gemini Enterprise Agent
-Platform and requires organisation-level setup. Probed on this project and
-confirmed unavailable to a personal Cloud account — `deploy/probe.sh` reports
-it, and this is the fallback that script promises.
+Google's managed **Agent Registry** is reachable on this project, and our
+deployed agents are in it. `agentregistry.googleapis.com` is available and
+enabled, and `GET /v1/projects/{p}/locations/us-central1/agents` returns
+`agentx-memory` and `hopscotch-supervisor` alongside Google's own first-party
+entries — auto-registered when they were deployed to Agent Engine, each with a
+display name, description, protocol type and two queryable interfaces.
+`scripts/geap.sh` fetches that list at run time so it is checkable rather than
+claimed.
+
+*(An earlier version of this document said the Agent Registry was substituted
+because it was "not offered". That was wrong: `geminienterprise.googleapis.com`
+is not offered, and the conclusion was over-generalised from it to the whole
+component. `agentregistry.googleapis.com` is a separate API and it works.)*
+
+What the managed registry does **not** hold is our scope model. It catalogues
+deployed agents; it does not know that `family-agent` may hold
+`case.read_redacted` and nothing more. That enforcement layer is ours:
 
 `src/hopscotch/registry.py` implements the same three responsibilities against
 Firestore, enforcing exactly the scopes declared in `registry/*.agent.yaml`:
@@ -420,13 +433,13 @@ components are substituted and it would be easy to blur that:
 | **Memory Bank** | ✅ `VertexAiMemoryBankService` on a real Agent Engine instance. Verified write and semantic recall. |
 | **Model Armor** | ✅ Real API and template. Catches injection at HIGH confidence, passes benign skill text. |
 | **Agent Observability** | ⚠️ OpenTelemetry spans → Cloud Trace. Meets the OTel-compliant requirement; not the branded product. |
-| **Agent Registry** | ❌ Substituted — Firestore, enforcing the scopes in `registry/*.agent.yaml`. |
+| **Agent Registry** | ✅ / ⚠️ Both. Our two Agent Engine deployments are **listed in Google's managed Agent Registry** — `agentx-memory` and `hopscotch-supervisor`, with protocol descriptors and queryable interfaces; run `scripts/geap.sh` to see them fetched live. The managed registry does not hold our per-worker *scope* model, so the fine-grained publish/discover/authorize layer in `registry/*.agent.yaml` remains ours. |
 | **Agent Gateway** | ❌ Substituted — in-process policy enforcement. |
 | **Agent Identity** | ❌ Substituted — declared `spiffe_id`, resolved by name. |
 
-The three substitutions are not a preference. `geminienterprise.googleapis.com`
-and `agentgateway.googleapis.com` report **"not offered on this project"** — not
-disabled, *not offered*. They sit behind organisation-level Gemini Enterprise
+The two remaining substitutions are not a preference.
+`geminienterprise.googleapis.com` and `agentgateway.googleapis.com` report
+**"not offered on this project"** — not disabled, *not offered*. They sit behind organisation-level Gemini Enterprise
 provisioning a personal Cloud account cannot reach, which `deploy/probe.sh`
 detects and reports.
 
