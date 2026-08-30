@@ -975,6 +975,7 @@ def case_detail(student_ref: str, msg: str = "", who=Depends(principal)) -> str:
 <meta name=robots content="noindex,nofollow">
 <title>{e(student_ref)} — {PROJECT_NAME}</title><style>{CSS}</style>
 <body><div class=wrap>
+{_switcher(who)}
 <a class=back href="/app">&larr; caseload</a>
 {_banner()}
 {_flash(msg)}
@@ -1266,6 +1267,7 @@ def index(msg: str = "", who=Depends(principal)) -> str:
 <meta name=robots content="noindex,nofollow">
 <title>{PROJECT_NAME} — special education compliance</title><style>{CSS}</style>
 <body><div class=wrap>
+{_switcher(who)}
 <header class=top>
   <div class=brandwrap>
     <div class=mark>H</div>
