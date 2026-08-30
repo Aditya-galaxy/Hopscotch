@@ -70,8 +70,8 @@ CSS = """
   --sunk:#141414;
   --raised:#181818;
   --paper:#FFFFFF;
-  --soft:#B4B4B2;
-  --muted:#828280;
+  --soft:#D2D2D0;
+  --muted:#9C9C9A;
   --rule:#1E1E1E;
   --rule-strong:#333331;
   --serif:"Newsreader",ui-serif,Georgia,"Times New Roman",serif;
@@ -82,7 +82,7 @@ CSS = """
 html{-webkit-text-size-adjust:100%}
 body{
   margin:0;background:var(--ink);color:var(--paper);
-  font-family:var(--sans);font-weight:300;font-size:15px;line-height:1.55;
+  font-family:var(--sans);font-weight:400;font-size:16px;line-height:1.62;
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
 }
 /* The ruled column: the landing page's rails, carried across. */
@@ -101,11 +101,11 @@ header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:center;
 .mark{width:28px;height:28px;border-radius:7px;background:var(--paper);
   color:var(--ink);display:grid;place-items:center;flex:none;
   font-family:var(--serif);font-weight:400;font-size:.95rem}
-.brand h1{font-family:var(--serif);font-size:1.18rem;margin:0;font-weight:300;
+.brand h1{font-family:var(--serif);font-size:1.2rem;margin:0;font-weight:400;
   letter-spacing:-.01em;line-height:1.15}
 .brand span{display:block;font-family:var(--mono);font-size:.68rem;
   color:var(--muted);letter-spacing:.05em;margin-top:3px}
-h1{font-family:var(--serif);font-weight:300;margin:0}
+h1{font-family:var(--serif);font-weight:400;margin:0}
 .whoami{margin-left:auto;display:flex;align-items:center;gap:10px}
 .idchip{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3}
 .idchip b{font-size:.8rem;font-weight:500}
@@ -120,15 +120,15 @@ h2{font-family:var(--mono);font-size:.68rem;font-weight:600;
   text-transform:uppercase;letter-spacing:.14em;color:var(--muted);
   margin:34px 0 12px;display:flex;align-items:center;gap:12px}
 h2::after{content:"";flex:1;height:1px;background:var(--rule)}
-h3{font-family:var(--serif);font-size:1.05rem;font-weight:300;margin:22px 0 8px;
+h3{font-family:var(--serif);font-size:1.12rem;font-weight:400;margin:22px 0 8px;
   letter-spacing:-.005em}
-.sub{color:var(--muted);font-size:.85rem;margin:0 0 14px;max-width:78ch}
+.sub{color:var(--soft);font-size:.9rem;line-height:1.65;margin:0 0 14px;max-width:74ch}
 
 /* ---- tiles: severity by weight and rail, never by hue ------------------- */
 .tiles{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);
   grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 .tile{background:var(--ink);padding:16px 18px;position:relative}
-.tile .n{font-family:var(--serif);font-size:2.05rem;font-weight:300;
+.tile .n{font-family:var(--serif);font-size:2.05rem;font-weight:400;
   line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums;
   color:var(--soft)}
 .tile .l{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;
@@ -146,11 +146,11 @@ h3{font-family:var(--serif);font-size:1.05rem;font-weight:300;margin:22px 0 8px;
 
 /* ---- tables: dense, ruled, monospaced where it is data ------------------ */
 .scroll{overflow-x:auto;border:1px solid var(--rule);background:var(--surface)}
-table{width:100%;min-width:680px;border-collapse:collapse;font-size:.845rem}
+table{width:100%;min-width:680px;border-collapse:collapse;font-size:.875rem}
 th{text-align:left;font-family:var(--mono);font-size:.63rem;text-transform:uppercase;
   letter-spacing:.11em;color:var(--muted);padding:10px 13px;font-weight:500;
   border-bottom:1px solid var(--rule);background:var(--sunk);white-space:nowrap}
-td{padding:9px 13px;border-bottom:1px solid var(--rule);vertical-align:middle;
+td{padding:10px 13px;border-bottom:1px solid var(--rule);vertical-align:middle;
   color:var(--soft)}
 tr:last-child td{border-bottom:0}
 tbody tr:hover{background:var(--sunk)}
@@ -169,26 +169,26 @@ tbody tr:hover td{color:var(--paper)}
 /* ---- the daily brief ---------------------------------------------------- */
 .brief{background:var(--surface);border:1px solid var(--rule);
   border-left:2px solid var(--paper);padding:18px 20px}
-.brief .hl{font-family:var(--serif);font-size:1.3rem;font-weight:300;
+.brief .hl{font-family:var(--serif);font-size:1.35rem;font-weight:400;
   line-height:1.35;letter-spacing:-.01em;margin-bottom:14px;max-width:68ch}
 .brief .grp{margin-top:13px}
 .brief .grp h4{margin:0 0 5px;font-family:var(--mono);font-size:.63rem;
   text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:500}
 .brief ul{margin:0;padding-left:16px}
-.brief li{font-size:.845rem;color:var(--soft);margin-bottom:3px}
+.brief li{font-size:.885rem;color:var(--soft);margin-bottom:5px;line-height:1.6}
 .brief li.more{color:var(--muted);font-style:italic}
 .brief .by{margin-top:15px;padding-top:11px;border-top:1px solid var(--rule);
   font-family:var(--mono);font-size:.66rem;color:var(--muted);letter-spacing:.04em}
 
 /* ---- notices ------------------------------------------------------------ */
 .banner{border:1px solid var(--rule-strong);border-left:2px solid var(--paper);
-  padding:11px 14px;font-size:.82rem;margin-bottom:16px;line-height:1.5;
+  padding:12px 15px;font-size:.86rem;margin-bottom:16px;line-height:1.6;
   background:var(--surface);color:var(--soft)}
 .banner b{color:var(--paper)}
 .flash{border:1px solid var(--rule-strong);background:var(--surface);
   color:var(--paper);padding:11px 14px;font-size:.85rem;margin:0 0 16px}
 .locked{background:var(--surface);border:1px dashed var(--rule-strong);
-  padding:15px 17px;color:var(--muted);font-size:.84rem}
+  padding:16px 18px;color:var(--soft);font-size:.89rem;line-height:1.6}
 .locked code{font-family:var(--mono);background:var(--sunk);padding:1px 5px;
   color:var(--soft)}
 .empty{color:var(--muted);font-size:.84rem;padding:20px;text-align:center}
@@ -225,7 +225,8 @@ form.inline{display:inline}
 .fixwrap summary::-webkit-details-marker{display:none}
 .fixwrap summary:hover{background:var(--raised);color:var(--paper)}
 .fixwrap[open] summary{color:var(--paper);background:var(--raised)}
-.hint{font-size:.78rem;color:var(--muted)}\n.nomedia{font-family:var(--mono);font-size:.66rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+.hint{font-size:.78rem;color:var(--muted)}
+.nowrap{white-space:nowrap}\n.nomedia{font-family:var(--mono);font-size:.66rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
 .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .tickrow{margin-top:-2px}
 .back{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;
@@ -255,11 +256,11 @@ form.inline{display:inline}
 .letter h3{margin:0 0 4px;font-size:1rem}
 .lettermeta{margin:0 0 12px;font-family:var(--mono);font-size:.66rem;
   color:var(--muted);letter-spacing:.04em}
-.letterbody{margin:0 0 12px;white-space:pre-wrap;font-size:.9rem;line-height:1.7;
-  color:var(--soft);max-width:68ch}
+.letterbody{margin:0 0 12px;white-space:pre-wrap;font-size:.95rem;line-height:1.75;
+  color:var(--soft);max-width:66ch}
 .rights{background:var(--surface);border:1px solid var(--rule);
   border-left:2px solid var(--paper);padding:16px 20px}
-.rights p{margin:0 0 10px;font-size:.87rem;color:var(--soft);max-width:72ch}
+.rights p{margin:0 0 12px;font-size:.92rem;line-height:1.68;color:var(--soft);max-width:70ch}
 .rights p:last-child{margin-bottom:0}
 
 /* ---- media -------------------------------------------------------------- */
@@ -872,7 +873,7 @@ def _intake_block(who) -> str:
             rows += (f"<tr><td class=mono>{e((r.get('at') or '')[:16])}</td>"
                      f"<td><span class='pill {cls}'>{e(status)}</span></td>"
                      f"<td class=mono>{link}</td>"
-                     f"<td>{e((r.get('detail') or '')[:70])}</td></tr>")
+                     f"<td>{e((r.get('detail') or '')[:96])}</td></tr>")
     except Exception:
         pass
     rows = rows or "<tr><td colspan=4 class=empty>Nothing dropped yet.</td></tr>"
@@ -1430,7 +1431,8 @@ def index(msg: str = "", who=Depends(principal)) -> str:
 {_banner()}
 {_flash(msg)}
 <p class=sub>{date.today().isoformat()} · every row below was written by an
-unattended agent, not a person. &nbsp;<a href="/walkthrough">Open the demo &rarr;</a></p>
+unattended agent, not a person.
+&nbsp;<a class=nowrap href="/walkthrough">Open the demo &rarr;</a></p>
 {brief_html}
 <h2>At a glance</h2>
 <div class=tiles>

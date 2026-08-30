@@ -254,7 +254,7 @@ job, the same approval, the same claim rules. All records synthetic.</footer>
 EXTRA = """
 .tour{max-width:900px}
 .tourbar{display:flex;align-items:center;gap:16px;padding:18px 0 0;
-  font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;color:var(--muted);
+  font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;color:var(--muted);
   text-transform:uppercase}
 .tourhome{text-decoration:none;color:var(--muted)}
 .tourhome:hover{color:var(--paper)}
@@ -264,32 +264,33 @@ EXTRA = """
 .dot.now{background:var(--paper)}
 .tourstep{white-space:nowrap}
 .tourhead{padding:44px 0 26px;border-bottom:1px solid var(--rule);margin-bottom:26px}
-.tourwho{font-family:var(--mono);font-size:.68rem;letter-spacing:.16em;
-  text-transform:uppercase;color:var(--muted);display:block;margin-bottom:12px}
-.tourhead h1{font-family:var(--serif);font-size:clamp(1.9rem,4.2vw,2.9rem);
-  font-weight:200;letter-spacing:-.02em;line-height:1.1;margin:0}
-.tourbody{font-size:.95rem;line-height:1.7;color:var(--soft)}
-.tourbody p{max-width:70ch;margin:0 0 14px}
-.tourbody strong{color:var(--paper);font-weight:500}
-.tourbody .out{font-family:var(--mono);font-size:.78rem;background:var(--surface);
-  border:1px solid var(--rule);border-left:2px solid var(--paper);padding:14px 16px;
-  white-space:pre-wrap;color:var(--paper);margin:0 0 16px;overflow-x:auto}
+.tourwho{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--soft);display:block;margin-bottom:12px}
+.tourhead h1{font-family:var(--serif);font-size:clamp(2rem,4.2vw,2.9rem);
+  font-weight:300;letter-spacing:-.02em;line-height:1.1;margin:0}
+.tourbody{font-size:1.02rem;line-height:1.75;color:var(--soft);font-weight:400}
+.tourbody p{max-width:66ch;margin:0 0 16px}
+.tourbody strong{color:var(--paper);font-weight:600}
+.tourbody .out{font-family:var(--mono);font-size:.83rem;line-height:1.65;
+  background:var(--surface);border:1px solid var(--rule);
+  border-left:2px solid var(--paper);padding:15px 17px;
+  white-space:pre-wrap;color:var(--paper);margin:0 0 18px;overflow-x:auto}
 .tourbody textarea{width:100%;min-height:132px;font-family:var(--mono);
   font-size:.78rem;line-height:1.6;padding:13px;background:var(--ink);
   color:var(--paper);border:1px solid var(--rule-strong);resize:vertical}
 .touract{margin-top:30px;padding-top:24px;border-top:1px solid var(--rule)}
-.btn.big{font-size:.92rem;padding:11px 24px;display:inline-block;text-decoration:none}
-.tournote{font-family:var(--mono);font-size:.72rem;color:var(--muted);
-  margin-top:18px;line-height:1.7;max-width:74ch}
-.kv{display:grid;grid-template-columns:minmax(0,17ch) 1fr;gap:6px 20px;
-  font-size:.87rem;margin:0 0 18px}
+.btn.big{font-size:.95rem;font-weight:600;padding:12px 26px;display:inline-block;text-decoration:none}
+.tournote{font-size:.87rem;color:var(--muted);margin-top:18px;line-height:1.7;
+  max-width:70ch;border-left:1px solid var(--rule-strong);padding-left:14px}
+.kv{display:grid;grid-template-columns:minmax(0,17ch) 1fr;gap:9px 24px;
+  font-size:.93rem;margin:0 0 20px}
 .kv dt{font-family:var(--mono);font-size:.72rem;color:var(--muted);
-  letter-spacing:.05em;text-transform:uppercase}
+  letter-spacing:.05em;text-transform:uppercase;padding-top:2px}
 .kv dd{margin:0;color:var(--paper)}
 .letterbox{background:var(--surface);border:1px solid var(--rule);
-  border-left:2px solid var(--paper);padding:18px 20px;margin:0 0 18px;
-  white-space:pre-wrap;font-size:.9rem;line-height:1.7;color:var(--soft);
-  max-width:70ch}
+  border-left:2px solid var(--paper);padding:20px 22px;margin:0 0 18px;
+  white-space:pre-wrap;font-size:.96rem;line-height:1.78;color:var(--soft);
+  max-width:66ch}
 """
 
 
@@ -761,7 +762,7 @@ the fleet already holds: <strong>would this session survive an audit?</strong></
   <dt>Session</dt><dd class=mono>{e(str(sess.get('service_date','—')))} &middot;
     {e(str(sess.get('minutes','—')))} minutes &middot;
     {e(str(sess.get('units_billed','—')))} units</dd>
-  <dt>Note</dt><dd>{e((sess.get('note') or '')[:120])}</dd>
+  <dt>Note</dt><dd>{e(sess.get('note') or '')}</dd>
   <dt>Verdict</dt><dd>{"billable" if r.get("billable") else "would be denied"}</dd>
 </dl>
 <div class=scroll><table>
