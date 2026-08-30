@@ -44,7 +44,8 @@ and the public demo refuses them. That is a feature, and judges notice it.
 ### Tabs, in this order
 
 1. **The product** — https://agentx-dashboard-dijsyl2kwq-uc.a.run.app
-2. **The app** — http://localhost:8080/app
+2. **The walkthrough** — http://localhost:8080/walkthrough  *(the spine of the demo)*
+3. **The dashboard** — http://localhost:8080/app
    *(the identity switcher sits at the very top of every staff page)*
 3. **Cloud Run job executions** —
    `console.cloud.google.com/run/jobs/details/us-central1/agentx-tick/executions?project=kronagent`
@@ -93,35 +94,36 @@ same student, second question. **Compliance stops the lawsuits; claiming is what
 pays for it.** That pairing is the product.
 
 ## 0:55 – 2:25 · The app in action
-**Switch to `localhost:8080/app`.** Point at the brief: the supervisor wrote it
-this morning, unprompted.
+**Use the walkthrough, not the dashboard.** `localhost:8080/walkthrough` is
+eight screens with one button each, following a single consent form all the way
+through. It exists precisely so this minute is a story rather than a tour, and
+every step performs the real action.
 
-| Beat | On screen | Seconds |
+| Step | Screen | What you say |
 |---|---|---|
-| Paste the consent form into the drop box | row appears as `pending` | 15 |
-| Say: this page has **no model access** — it screens and parks; the fleet reads | — | 10 |
-| **Press "Run a tick now"** | redirect, "Tick started" | 5 |
-| **Cut to Cloud Run executions, hit refresh** | a new execution, running | 20 |
-| Back to the app, open the case | deadline computed **from the receipt date** | 20 |
-| Press the tick once more | `escalated: 1, notices_sent: 1` | 10 |
-| Outbox | notice waiting for a named human | 10 |
+| 0 | The form arrives | This is how work actually arrives — a scan, a photo. **This page has no model access at all.** It screens and parks; the fleet reads. |
+| 1 | Screened first | Model Armor sees it before any extractor does. The screen is *in front of* the model. |
+| 2 | The clock starts | Look where it counted from — the day the district **received** consent, not the day the parent signed. That's the statute. Already 14 days overdue. |
+| 3 | It writes to the family | Escalated unattended. Three agents touched this letter and each was handed **less** than the last. |
+| 4 | A person decides | Read the letter. Nothing names a diagnosis, because the agent that wrote it was never given one. Press **Approve**. |
+| 5 | What the family receives | Their own page, their own child. Play the audio. A parent opening another child's case gets **404** — 403 would confirm the child exists. |
+| 6 | The same session, as money | 25 assessed, 12 would be denied. One passes every rule and is still a denial, because the note says *group* and the IEP says *individual*. |
+| 7 | What it refuses | File the poisoned form. It never reaches an extractor. |
 
-Two lines worth saying while this runs:
+### The timing problem, and how to handle it
 
-- The clock starts from the day the district **received** consent, not the day
-  the parent signed. That is the statute, and the case page says which date it
-  used and why.
-- Intake runs at the end of a tick, so the new case is picked up on the next
-  one. It runs hourly anyway.
+**A tick takes 157–190 seconds.** Measured across four executions, not
+estimated. Steps 1 and 2 each trigger one, so running the walkthrough live end
+to end costs about six minutes — more than the whole video.
 
-**Then the poisoned document** — paste it, tick, and let this land:
+So: **do a complete dry run before you record.** Click all eight steps, let both
+ticks finish, and leave the case in place. Then record a second pass, where
+every screen already has its data and renders instantly. On the two "Run the
+fleet" clicks, cut — and cut *to the Cloud Run executions tab*, which is where
+requirement 4 gets paid anyway. The execution you are pointing at is the one
+your click just started.
 
-```
-intake blocked: Model Armor blocked upload: pi_and_jailbreak@MEDIUM_AND_ABOVE
-```
-
-It was refused **before any extractor saw it**. The screen sits in front of the
-model, not after, so it never got the chance to be persuaded.
+Do not try to fill three minutes of dead air by talking. Cut.
 
 ## 2:25 – 3:15 · Running on Google Cloud
 The explicit block. Move briskly; four tabs, roughly twelve seconds each.
