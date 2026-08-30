@@ -1,59 +1,75 @@
-flowchart LR
-    subgraph TRIG["TRIGGER"]
-        direction TB
-        SCH["Cloud Scheduler<br/>hourly"]
+flowchart TB
+    STAFF["Coordinator · psychologist · liaison<br/>business office · admin"]
+    PAR["Parent<br/>bound to one child"]
+
+    subgraph WEB["CLOUD RUN SERVICE — agentx-dashboard · no model access"]
+        direction LR
+        UI["Landing · walkthrough · dashboard<br/>case pages · family view"]
+        AUTH["Google OIDC<br/>role to scope"]
     end
 
-    JOB["Cloud Run Job<br/>hopscotch-tick<br/>scales to zero"]
+    SCH["Cloud Scheduler<br/>hourly · 0 * * * *"]
+    JOB["Cloud Run Job — agentx-tick<br/>scales to zero"]
 
     subgraph GOV["GOVERNANCE PLANE"]
-        direction TB
-        GW["Agent Gateway<br/>deny by default"]
-        ID["Agent Identity<br/>declared, not attested"]
-        REG["Agent Registry<br/>versioned, dept-scoped"]
-        MA["Model Armor<br/>inline guardrail"]
+        direction LR
+        MA["Model Armor<br/>screens every document<br/>before extraction"]
+        GW["Agent Gateway<br/>deny by default<br/>shapes data to identity"]
+        REG["Agent Registry<br/>versioned · dept-scoped"]
     end
 
-    subgraph FLEET["OPERATIONAL FLEET"]
-        direction TB
-        CO["coordinator<br/>gemini-3.7-flash"]
-        IN["intake-agent"]
-        CL["clock-agent"]
-        CW["casework-agent"]
-        FA["family-agent"]
+    subgraph FLEET["OPERATIONAL FLEET — Gemini 3.5 Flash · ADK 2.7.1"]
+        direction LR
+        IN["intake"]
+        CL["clock"]
+        CW["casework"]
+        FA["family"]
+        CLM["claims"]
     end
 
-    subgraph GATE["CAPABILITY GATE"]
-        direction TB
-        RV["structural, triage,<br/>intent, injection"]
+    HUMAN{{"Named human approves<br/>before any family is contacted"}}
+
+    subgraph ENGINE["VERTEX AI AGENT ENGINE"]
+        direction LR
+        SUP["Agent Runtime<br/>supervisor · daily brief"]
+        MB[("Memory Bank")]
     end
 
-    subgraph STATE["STATE and TELEMETRY"]
-        direction TB
-        FS[("Firestore<br/>cases, audit, effects")]
-        MB[("Memory Bank<br/>cross-session")]
+    subgraph DATA["STATE · MEDIA · TELEMETRY"]
+        direction LR
+        FS[("Firestore<br/>cases · inbox · outbox<br/>audit · claim readiness")]
+        GCS[("Cloud Storage<br/>spoken notices")]
         CT["Cloud Trace<br/>OTel spans"]
     end
 
+    STAFF --> UI
+    PAR --> UI
+    UI --> AUTH
+    AUTH --> GW
+    UI -. "Run Admin API" .-> JOB
     SCH --> JOB
-    JOB --> CO
-    CO --> GW
-    ID --> GW
-    REG --> GW
+    JOB --> MA
+    MA --> IN
+    JOB --> GW
+    GW --> REG
     GW --> FLEET
-    CL -->|escalation| CW
-    CW -->|redacted| FA
-    IN --> MA
-    MA --> RV
-    RV --> REG
+    CL --> CW
+    CW -- "redacted projection" --> FA
+    FA --> HUMAN
+    HUMAN --> PAR
     FLEET --> FS
-    FA --> MB
-    CO --> CT
-    GW --> FS
+    FA --> GCS
+    CLM --> FS
+    JOB --> SUP
+    SUP --> MB
+    JOB --> CT
+    FS --> UI
 
-    classDef gov fill:#1F5C3D,stroke:#123a26,color:#ffffff
+    classDef gov fill:#1F5C3D,stroke:#123a26,color:#fff
     classDef fleet fill:#E3EDE7,stroke:#1F5C3D,color:#12271c
-    classDef store fill:#EEEDE7,stroke:#8a8f86,color:#12271c
-    class GW,ID,REG,MA gov
-    class CO,IN,CL,CW,FA,RV fleet
-    class FS,MB,CT,JOB store
+    classDef store fill:#EFEEE9,stroke:#8a8f86,color:#12271c
+    classDef human fill:#F8F0DC,stroke:#8A6A1F,color:#3a2d0b
+    class GW,REG,MA gov
+    class IN,CL,CW,FA,CLM,SUP fleet
+    class FS,MB,CT,JOB,SCH,GCS,UI,AUTH store
+    class HUMAN,STAFF,PAR human

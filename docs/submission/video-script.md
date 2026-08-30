@@ -1,8 +1,12 @@
 # Demo video — the 4:00 plan
 
-**4:00 hard cap; only the first four minutes are judged. Public on YouTube, not
-unlisted.** Narrate it live — an AI voiceover beats silence, but your own voice
-beats both.
+**4:00 hard cap. Public on YouTube, not unlisted.**
+
+**The judging criteria ask for a "live, unedited demo" — 30% of the score.** No
+cuts, no splices, no sped-up sections. This document is built around a single
+continuous take; the trick that makes it possible is triggering the Cloud Run
+job at 0:55 and returning to it at 2:25, so the wait happens underneath the
+demo instead of interrupting it.
 
 This document is the shot plan and the timing budget.
 [narration.md](narration.md) is the companion: the words, in your voice, not to
@@ -94,39 +98,45 @@ same student, second question. **Compliance stops the lawsuits; claiming is what
 pays for it.** That pairing is the product.
 
 ## 0:55 – 2:25 · The app in action
-**Use the walkthrough, not the dashboard.** `localhost:8080/walkthrough` is
-eight screens with one button each, following a single consent form all the way
-through. It exists precisely so this minute is a story rather than a tour, and
-every step performs the real action.
 
-| Step | Screen | What you say |
+> **The rules say: "We want a live, unedited demo."** That is 30% of the score,
+> and it kills the earlier plan in this document, which told you to cut during
+> the tick. There are no cuts now. The whole take is continuous.
+
+**Two facts make an unedited take possible.** A tick takes 157–190 seconds, so
+you cannot wait for one on camera. But the **guided walkthrough renders every
+screen instantly** from records the fleet has already worked — and the tick you
+trigger runs in the background while you keep talking.
+
+So the shape is: **start the job early, narrate over it, come back to it.**
+
+### The one continuous take
+
+| Time | Do this | Say this |
 |---|---|---|
-| 0 | The form arrives | This is how work actually arrives — a scan, a photo. **This page has no model access at all.** It screens and parks; the fleet reads. |
-| 1 | Screened first | Model Armor sees it before any extractor does. The screen is *in front of* the model. |
-| 2 | The clock starts | Look where it counted from — the day the district **received** consent, not the day the parent signed. That's the statute. Already 14 days overdue. |
-| 3 | It writes to the family | Escalated unattended. Three agents touched this letter and each was handed **less** than the last. |
-| 4 | A person decides | Read the letter. Nothing names a diagnosis, because the agent that wrote it was never given one. Press **Approve**. |
-| 5 | What the family receives | Their own page, their own child. Play the audio. A parent opening another child's case gets **404** — 403 would confirm the child exists. |
-| 6 | The same session, as money | 25 assessed, 12 would be denied. One passes every rule and is still a denial, because the note says *group* and the IEP says *individual*. |
-| 7 | What it refuses | File the poisoned form. It never reaches an extractor. |
+| 0:55 | On the dashboard, press **Run a tick now** | "That just asked a Cloud Run job to start. It takes about three minutes — we'll come back to it." |
+| 1:00 | Go to `/walkthrough`, click through steps 1–4 | The form arrives · screened before anything reads it · the clock starts from **receipt** · overdue, so it wrote to the family |
+| 1:45 | Step 5 — the fleet | Five agents, and the gateway hands each a different shape of the record. casework gets 9 fields, family-agent gets 4 and no consent block at all |
+| 2:00 | Steps 6–7 | A person releases the letter. The family sees their own child and nothing else — another child returns **404**, not 403 |
+| 2:15 | Steps 8–9 | This session as a claim line, nine checks; then the district view, where 12 of 26 would be denied |
 
-### The timing problem, and how to handle it
+Nothing above waits on anything. Every screen is served from Firestore in
+milliseconds.
 
-**A tick takes 157–190 seconds.** Measured across four executions, not
-estimated. Steps 1 and 2 each trigger one, so running the walkthrough live end
-to end costs about six minutes — more than the whole video.
+### If you want the write path on camera as well
 
-So: **do a complete dry run before you record.** Click all eight steps, let both
-ticks finish, and leave the case in place. Then record a second pass, where
-every screen already has its data and renders instantly. On the two "Run the
-fleet" clicks, cut — and cut *to the Cloud Run executions tab*, which is where
-requirement 4 gets paid anyway. The execution you are pointing at is the one
-your click just started.
-
-Do not try to fill three minutes of dead air by talking. Cut.
+Do it on the **local** instance, where the buttons act instead of narrate — but
+only the fast ones. Filing a document and approving a notice are instant. Do
+**not** press "Run the fleet" and wait; that is what the background job at 0:55
+is for.
 
 ## 2:25 – 3:15 · Running on Google Cloud
-The explicit block. Move briskly; four tabs, roughly twelve seconds each.
+**Now go back to the job you started at 0:55.** It has had two and a half
+minutes and will have finished. This is the strongest thing in the video: an
+execution the judge watched you trigger, completing on Google Cloud, in one
+unbroken take.
+
+Then move briskly; four tabs, roughly twelve seconds each.
 
 1. **Cloud Run job executions** — 235+ executions, hourly, unbroken since
    22 August. Nobody watching. *This is the single most convincing frame in the
@@ -218,3 +228,27 @@ are requirement 4 and the differentiator, in that order.
 - The `APPROVE` on the credential skill works best if you sound a little amused.
 - Keep the line about having had the statute wrong until two days ago. Judges
   trust someone who corrects themselves.
+
+---
+
+## Required deliverables — checked against the rules page
+
+| Required | Status |
+|---|---|
+| Category | Fortified Enterprise Fleet |
+| Hosted project URL | `https://agentx-dashboard-dijsyl2kwq-uc.a.run.app` — live, no credentials |
+| Text description | `docs/submission/devpost.md` — features, technologies, data sources, findings |
+| Code repository | github.com/Aditya-galaxy/Hopscotch |
+| Spin-up instructions in README | "Quick start" section — `make install`, `make test`, `./scripts/demo.sh` |
+| **Architecture diagram** | `docs/diagrams/01-system-overview.png` — shows frontend, backend, database, and where Gemini sits |
+| ~4-min demo video | **the only outstanding item** |
+
+**Repository access, if it stays private.** The rules say share it with
+`testing@devpost.com` *and* `cloudhackathons@google.com`. `devposttesting` has
+accepted; **`googlecloudhackathons` is still pending** — if they do not accept
+before the deadline, Google's judges cannot open the repo, the hosted URL, or
+anything the video points at. Flipping the repo public removes that risk
+entirely and is the safer move.
+
+**Deadline: 31 August 2026, 5:00pm PDT.**
+
