@@ -212,7 +212,7 @@ tbody tr:hover td{color:var(--paper)}
   border-radius:999px;cursor:pointer;border:1px solid var(--paper);
   background:var(--paper);color:var(--ink);transition:opacity .14s ease}
 .btn:hover{opacity:.84}
-.btn.ghost{background:transparent;color:var(--paper);border-color:var(--rule-strong)}
+.btn.ghost{background:transparent;color:var(--paper);border-color:#4C4C4C}
 .btn.ghost:hover{background:var(--raised);opacity:1;border-color:var(--muted)}
 .btn:disabled{opacity:.35;cursor:not-allowed}
 form.inline{display:inline}
