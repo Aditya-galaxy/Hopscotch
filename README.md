@@ -10,6 +10,17 @@ year for help they were already owed.*
 
 Built for the All Things Agentic Hackathon · **Fortified Enterprise Fleet**.
 
+### See it running
+
+| | |
+|---|---|
+| **[Open the demo](https://agentx-dashboard-dijsyl2kwq-uc.a.run.app/walkthrough)** | Nine screens following one consent form from a school office to a letter in a family's hands and a line on a Medicaid claim. Real records, no credentials needed. |
+| [The dashboard](https://agentx-dashboard-dijsyl2kwq-uc.a.run.app/app) | What a coordinator sees. Switch identity at the top — coordinator, psychologist, liaison, business office, parent — and watch the same records change shape. |
+| [The product page](https://agentx-dashboard-dijsyl2kwq-uc.a.run.app) | What it is and why. |
+
+Everything is read-only and every record is synthetic. Writes need
+authentication, which the public deployment deliberately does not have.
+
 ---
 
 ## The problem
