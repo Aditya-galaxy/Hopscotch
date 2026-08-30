@@ -34,6 +34,7 @@ STEPS = [
     ("Screened before anything reads it", "The fleet"),
     ("The clock starts", "The fleet"),
     ("Overdue, so it writes to the family", "The fleet"),
+    ("The fleet that did it", "Architecture"),
     ("A person decides whether it sends", "SPED coordinator"),
     ("What the family receives", "Parent"),
     ("The same session, as money", "Business office"),
@@ -138,6 +139,26 @@ def _case_for_doc(doc_id: str):
         return None, None
     ref = f"stu-{doc_id[:8]}"
     return ref, store.get_case(ref)
+
+
+def _showcase_doc(ref: str) -> dict | None:
+    """The inbox document that produced this case.
+
+    Without it the guided tour showed a freshly generated consent form on step
+    0 and then a completely different case from step 2 onward -- a different
+    child, a different school -- inside a tour whose whole premise is following
+    ONE form. The visitor is not told they have changed subject; they simply
+    stop being able to follow it.
+    """
+    from .. import store
+
+    try:
+        for d in store.inbox_recent(20):
+            if d.get("student_ref") == ref:
+                return d
+    except Exception:
+        pass
+    return None
 
 
 def _notice_for(ref: str):
@@ -328,7 +349,9 @@ staged.</strong></p>
 
 
 @router.get("/0", response_class=HTMLResponse)
-def step0() -> str:
+def step0(request: Request) -> str:
+    doc = _showcase_doc(_ref(request)) if guided() else None
+    shown = (doc or {}).get("text") or _consent_text()
     body = f"""
 <p>This is how the work actually arrives: a scan, a phone photo, a forwarded
 email. Someone in the front office types or pastes it in.</p>
@@ -337,13 +360,16 @@ cannot read this document. It screens it and parks it, and the fleet picks it
 up on its next run — so a compromised coordinator surface still cannot make a
 model do anything.</p>
 <form method=post action="/walkthrough/0/do">
-  <textarea name=text{" readonly" if guided() else ""}>{e(_consent_text())}</textarea>
+  <textarea name=text{" readonly" if guided() else ""}>{e(shown)}</textarea>
 </form>"""
+    note = ("This is the document the rest of this walkthrough follows. It was "
+            "filed for real and the fleet has already read it."
+            if guided() else
+            "The dates are generated from today, so the case opens already past "
+            "its deadline and the fleet has something real to do.")
     return _page(0, body, **_act(1, "/walkthrough/0/do",
                                  "File it with the district",
-                                 "See what happened to it"), note=(
-        "The dates are generated from today, so the case opens already past its "
-        "deadline and the fleet has something real to do."))
+                                 "See what happened to it"), note=note)
 
 
 @router.post("/0/do")
@@ -381,15 +407,14 @@ not after it, so a document carrying instructions never gets the chance to be
 persuasive.</p>
 <div class=out>inbox status: {e(status)}
 screened by: Model Armor (pi_and_jailbreak, MEDIUM_AND_ABOVE)
-read by: nothing yet — the fleet runs next</div>
-<p>Now run the fleet. This triggers the <strong>same Cloud Run job</strong> the
-hourly scheduler fires; the dashboard has no Vertex access of its own and can
-only ask the job to run.</p>"""
+extractor: {"has since read it" if status == "read" else "has not seen it yet"}</div>
+<p>{"The fleet read it on one of its hourly runs. That run is the same Cloud Run job you could trigger by hand: the dashboard has no Vertex access of its own and can only ask the job to start." if guided() else "Now run the fleet. This triggers the <strong>same Cloud Run job</strong> the hourly scheduler fires; the dashboard has no Vertex access of its own and can only ask the job to run."}</p>"""
+    note = ("" if guided() else
+            "The job takes about three minutes -- measured, not estimated. It "
+            "recomputes every open deadline, then screens and extracts the new "
+            "document at the end.")
     return _page(1, body, **_act(2, "/walkthrough/1/do", "Run the fleet",
-                                 "See what the fleet did"),
-                 note=("The job takes about three minutes -- measured, not "
-                       "estimated. It recomputes every open deadline, then "
-                       "screens and extracts the new document at the end."))
+                                 "See what the fleet did"), note=note)
 
 
 @router.post("/1/do")
@@ -529,12 +554,94 @@ read.</p>"""
 
 @router.get("/4", response_class=HTMLResponse)
 def step4(request: Request) -> str:
+    """The architecture screen: who did the work, and what each was handed.
+
+    The previous step promises that three agents touched the letter and each
+    received less than the last. That is the central claim of the whole system
+    and the tour asserted it without ever showing it. This shows it, computed
+    live against the case the visitor has been following.
+    """
+    from .. import store
+    from ..gateway import project_for_scopes
+    from ..registry import load_cards
+
+    ref = _ref(request)
+    case = store.get_case(ref) if ref else None
+
+    try:
+        cards = sorted(load_cards(), key=lambda c: c.name)
+    except Exception:
+        cards = []
+
+    rows = ""
+    for c in cards:
+        seen = "—"
+        if case is not None:
+            try:
+                view = project_for_scopes(set(c.scopes), case)
+                consent = view.get("consent", {})
+                seen = f"{len(view)} top-level, {len(consent)} consent field(s)"
+            except Exception:
+                seen = "—"
+        rows += (f"<tr><td class=mono>{e(c.name)}</td>"
+                 f"<td class=mono>{e(', '.join(sorted(c.scopes))[:54])}</td>"
+                 f"<td class=mono>{e(seen)}</td></tr>")
+    rows = rows or "<tr><td colspan=3 class=empty>Registry unavailable.</td></tr>"
+
+    clinical = "—"
+    if case is not None:
+        try:
+            full = project_for_scopes({"case.read_full"}, case).get("consent", {})
+            fam = project_for_scopes({"case.read_redacted"}, case).get("consent", {})
+            withheld = sorted(set(full) - set(fam))
+            clinical = ", ".join(withheld) if withheld else "nothing extra"
+        except Exception:
+            pass
+
+    body = f"""
+<p>Five agents did the work you have just read, and the gateway handed each of
+them a <strong>different shape of the same record</strong>. This table is
+computed live, against the case you are following.</p>
+<div class=scroll><table>
+<tr><th>agent</th><th>scopes it holds</th><th>what it is handed</th></tr>
+{rows}</table></div>
+<p style="margin-top:16px">The family-facing agent does not receive the clinical
+detail and decline to use it &mdash; it never receives it. On this case the
+entire consent block is withheld from it, <strong>including</strong>
+<span class=mono>referral_reason</span>, which is where the clinical narrative
+lives, and <span class=mono>source_document</span>, the raw form with the
+child&rsquo;s name in it. Full list:
+<span class=mono>{e(clinical)}</span></p>
+<p>That is the difference between authorisation and projection. A check can be
+forgotten at a new call site; a projection cannot leak a field it never
+returned. Field classification <strong>fails closed</strong>, so a field nobody
+has classified yet is withheld rather than exposed.</p>
+<div class=out>where they run
+  Vertex AI Agent Engine — two deployed engines, both listed in Google's
+  managed Agent Registry (agentx-memory, hopscotch-supervisor)
+  Memory Bank for cross-session state
+  Model Armor in front of every inbound document
+  OpenTelemetry spans to Cloud Trace
+  Cloud Run job on an hourly Cloud Scheduler trigger
+
+what we do not have
+  Agent Identity  — geminienterprise.googleapis.com is not offered here, so
+                    agent identity is registry-declared, not attested
+  Agent Gateway   — substituted with in-process policy enforcement</div>
+<p>Run <span class=mono>scripts/geap.sh</span> in the repository and every line
+of that is fetched live rather than claimed.</p>"""
+    return _page(4, body, action="/walkthrough/5",
+                 label="Now a person decides", method="get")
+
+
+@router.get("/5", response_class=HTMLResponse)
+def step4(request: Request) -> str:
     from .. import store
 
     n = _notice_for(_ref(request))
     if n is None:
         return _page(4, "<p>No notice on file for this walkthrough.</p>",
-                     action="/walkthrough/5", label="Continue", method="get")
+                     action="/walkthrough/6", label="Continue", method="get")
 
     approved = n.status.value in ("approved", "sent")
     body = f"""
@@ -542,20 +649,18 @@ def step4(request: Request) -> str:
 in it names a diagnosis, because the agent that wrote it was never given
 one.</p>
 <div class=letterbox>{e(n.body)}</div>
-<p>It is <strong>waiting</strong>. The fleet drafts and queues; it never decides
-to contact a family. Nothing reaches a parent without a named person on the
-record.</p>"""
+<p>{"The fleet drafted and queued it; a named person then released it. The fleet never decides to contact a family on its own." if approved else "It is <strong>waiting</strong>. The fleet drafts and queues; it never decides to contact a family. Nothing reaches a parent without a named person on the record."}</p>"""
     if approved:
-        return _page(4, body + "<div class=out>already released by "
+        return _page(5, body + "<div class=out>already released by "
                      f"{e(n.approved_by or 'a coordinator')}</div>",
                      action="/walkthrough/5", label="See what the family gets",
                      method="get")
-    return _page(4, body, **_act(5, "/walkthrough/4/do",
+    return _page(5, body, **_act(6, "/walkthrough/5/do",
                                  "Approve and release it",
                                  "See what the family received"))
 
 
-@router.post("/4/do")
+@router.post("/5/do")
 def step4_do(request: Request):
     _guard()
     from ..delivery import approve
@@ -565,10 +670,10 @@ def step4_do(request: Request):
     n = _notice_for(_ref(request))
     if n is not None and n.status.value == "pending_approval":
         approve(n.id, approved_by="coordinator@district.org")
-    return RedirectResponse("/walkthrough/5", status_code=303)
+    return RedirectResponse("/walkthrough/6", status_code=303)
 
 
-@router.get("/5", response_class=HTMLResponse)
+@router.get("/6", response_class=HTMLResponse)
 def step5(request: Request) -> str:
     from .. import store
     from ..media import media_exists
@@ -579,7 +684,7 @@ def step5(request: Request) -> str:
         body = """
 <p>Nothing has been released to this family yet, so their page shows nothing.
 That is the gate working, not a gap.</p>"""
-        return _page(5, body, action="/walkthrough/6", label="Continue",
+        return _page(6, body, action="/walkthrough/7", label="Continue",
                      method="get")
 
     o = letters[0]
@@ -597,11 +702,11 @@ other child exists.</p>
 <p>The page tells them plainly that this is a status summary and not the record,
 and that they may demand the complete file. FERPA gives them that right, and a
 portal implying otherwise would be worse than no portal.</p>"""
-    return _page(5, body, action="/walkthrough/6",
+    return _page(6, body, action="/walkthrough/7",
                  label="Now the money side", method="get")
 
 
-@router.get("/6", response_class=HTMLResponse)
+@router.get("/7", response_class=HTMLResponse)
 def step6(request: Request) -> str:
     from .. import store
 
@@ -636,25 +741,25 @@ the whole argument for spending a model call.</p>
 <p>Over-billing blocks. Under-billing is surfaced as money the district left
 behind. Nothing is submitted from here; the export is what a billing vendor
 ingests.</p>"""
-    return _page(6, body, action="/walkthrough/7",
+    return _page(7, body, action="/walkthrough/8",
                  label="One more thing", method="get")
 
 
-@router.get("/7", response_class=HTMLResponse)
+@router.get("/8", response_class=HTMLResponse)
 def step7() -> str:
     body = f"""
 <p>Everything so far assumed the document was honest. This one is not — it is a
 consent form with instructions buried inside it.</p>
 <div class=out>{e(POISONED)}</div>
 <p>File it the same way the first one was filed, and watch where it stops.</p>"""
-    return _page(7, body, **_act("done", "/walkthrough/7/do",
+    return _page(8, body, **_act("done", "/walkthrough/8/do",
                                  "File the poisoned form",
                                  "See where it stopped"), note=(
                      "This is a hand-written reproduction of a published attack "
                      "pattern. It is inert text: nothing executable, no payload."))
 
 
-@router.post("/7/do")
+@router.post("/8/do")
 def step7_do(request: Request):
     _guard()
     from .. import store
