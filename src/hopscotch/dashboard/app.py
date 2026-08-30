@@ -279,6 +279,30 @@ footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--rule);
 
 # --- identity ---------------------------------------------------------------
 
+def _plain_page(title: str, body: str, status_note: str = "") -> str:
+    """A styled page for the states that are not the happy path.
+
+    A bare unstyled error in an otherwise finished application reads as a seam,
+    and this one is reachable by anyone poking at another family's record.
+    """
+    return f"""<!doctype html><html lang=en><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=robots content="noindex,nofollow">
+<title>{e(title)} — {PROJECT_NAME}</title>{FONTS}<style>{CSS}</style>
+<body><div class=wrap>
+<header class=top>
+  <div class=brandwrap>
+    <div class=mark>H</div>
+    <div class=brand><h1>{e(title)}</h1><span>{PROJECT_NAME}</span></div>
+  </div>
+</header>
+<p class=sub>{e(body)}</p>
+{f'<p class=sub>{e(status_note)}</p>' if status_note else ''}
+<p><a class=back href="/">&larr; back to the start</a></p>
+<footer>{PROJECT_NAME} &middot; all data synthetic</footer>
+</div></body></html>"""
+
+
 @app.exception_handler(NotThisRecord)
 def _not_this_record(request: Request, exc: NotThisRecord):
     """404, deliberately, not 403.
@@ -288,7 +312,10 @@ def _not_this_record(request: Request, exc: NotThisRecord):
     404 tells them nothing. The refusal is still audited server-side.
     """
     log.warning("record-scope refusal: %s", exc)
-    return HTMLResponse("<h1>404</h1><p>No such case.</p>", status_code=404)
+    return HTMLResponse(_plain_page(
+        "No such case",
+        "There is no case here for you to read. If you believe there should be, "
+        "the district office can tell you."), status_code=404)
 
 
 DEMO_IDENTITIES: dict[str, tuple[str, str]] = {
@@ -1281,9 +1308,10 @@ def landing() -> str:
     if not page.exists():
         # The image copies site/ explicitly; if that were ever dropped the
         # front door should say so rather than 500 on a missing file.
-        return ("<!doctype html><meta charset=utf-8><title>Hopscotch</title>"
-                "<p>Landing page not bundled in this image. "
-                "The application is at <a href='/app'>/app</a>.")
+        return _plain_page(
+            "Landing page not bundled",
+            "This image was built without the site/ directory. The application "
+            "itself is unaffected and is at /app.")
     return page.read_text(encoding="utf-8")
 
 
