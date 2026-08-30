@@ -45,6 +45,7 @@ and the public demo refuses them. That is a feature, and judges notice it.
 
 1. **The product** — https://agentx-dashboard-dijsyl2kwq-uc.a.run.app
 2. **The app** — http://localhost:8080/app
+   *(the identity switcher sits at the very top of every staff page)*
 3. **Cloud Run job executions** —
    `console.cloud.google.com/run/jobs/details/us-central1/agentx-tick/executions?project=kronagent`
 4. **Cloud Scheduler** — `console.cloud.google.com/cloudscheduler?project=kronagent`
@@ -139,13 +140,32 @@ The explicit block. Move briskly; four tabs, roughly twelve seconds each.
 Close the block on the deployed `.run.app` tab so the URL is the last thing on
 screen.
 
-## 3:15 – 3:50 · Why it is allowed near the records
-**On screen:** the case page, scrolled to *What this identity may see*.
+## 3:15 – 3:50 · Every side of one record
+**On screen:** the identity switcher at the top of the dashboard. This is the
+strongest thirty seconds in the video after the blocked document — the whole
+governance thesis, shown rather than described.
 
-Every agent reads through one gateway, and it shapes the record to whoever is
-asking. The family-facing agent does not receive clinical fields and decline to
-use them — it never receives them. Fields above the ceiling are **absent**, not
-blanked, so a page that never had them cannot leak them.
+Click along the row and let each land for four or five seconds:
+
+| Identity | What changes on screen |
+|---|---|
+| **SPED coordinator** | the whole caseload, the outbox, the audit trail |
+| **School psychologist** | clinical detail, but no outbox and no audit trail |
+| **Family liaison** | redacted view; the audit trail names students, so it is withheld |
+| **Business office** | claim readiness in full — and *"the caseload is not visible to your role; it requires `case.read`"* |
+| **Parent** | a different surface entirely: one child, the deadline in plain words, the letters actually sent |
+
+> Same records. Different identity. The gateway decides what each one is handed
+> — and it is the *same* scope table the agents go through.
+
+**The beat worth staging:** from the coordinator's outbox, press **Approve**,
+then click **"View as this family"** on that same row. Before approval the
+parent's page says nothing has been sent. After it, the letter is there, in
+plain language, with audio, marked *released by* a named person. One action,
+both sides.
+
+A parent cannot open another child's case — that returns **404**, not 403,
+because 403 would confirm the student exists.
 
 If time allows, the capability gate — a skill file that reads AWS credentials,
 hides the fact, and passes every structural check:
