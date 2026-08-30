@@ -110,8 +110,10 @@ def draft_and_send(
 
         audio: Path | None = None
         try:
-            from .media import speak
+            from .media import persist, speak
             audio = speak(packet.letter_text, language=packet.language or "en-US")
+            # Move it off this container's disk before recording where it is.
+            audio = persist(audio)
         except Exception as e:
             # A missing recording is a degraded notice, not a failed one -- the
             # letter exists and the deadline is still tracked. But LOG it: a
@@ -128,7 +130,7 @@ def draft_and_send(
             queue(student_ref=case.student_ref, notice_type=notice.notice_type,
                   subject=f"Special education evaluation — {case.student_ref}",
                   body=packet.letter_text, language=packet.language or "en-US",
-                  audio_path=str(audio) if audio else None)
+                  audio_path=audio or None)
             s.set_attribute("queued", True)
         except Exception as e:
             s.set_attribute("queued", False)
@@ -140,7 +142,7 @@ def draft_and_send(
         return NoticeResult(
             student_ref=case.student_ref, notice_type=notice.notice_type,
             language=packet.language or "en-US",
-            audio_path=str(audio) if audio else None,
+            audio_path=audio or None,
             redacted=packet.redaction_applied,
         )
 

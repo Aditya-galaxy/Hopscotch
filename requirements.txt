@@ -33,3 +33,7 @@ fastapi
 uvicorn[standard]
 # Imported directly for BaseHTTPMiddleware (security headers).
 starlette
+
+# Persisted parent-facing audio. Chirp runs in the tick container, whose disk
+# does not survive the job; without this the recorded path outlives the bytes.
+google-cloud-storage

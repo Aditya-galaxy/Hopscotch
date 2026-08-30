@@ -15,6 +15,7 @@ Cost discipline is deliberate and load-bearing:
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 
 from .config import settings
@@ -75,6 +76,63 @@ def speak(text: str, *, language: str = "es-US", out: Path | None = None) -> Pat
         s.set_attribute("cached", False)
         s.set_attribute("bytes", len(resp.audio_content))
         return path
+
+
+
+def _bucket_name() -> str:
+    return os.environ.get("MEDIA_BUCKET", "").strip()
+
+
+def persist(path: Path) -> str:
+    """Put generated media somewhere it will still exist on the next request.
+
+    Chirp runs inside the TICK, in a Cloud Run job container, and wrote to that
+    container's local disk. The container is destroyed when the job finishes,
+    so the path survived in Firestore while the bytes did not -- and the
+    dashboard, a different container entirely, offered a player for twenty
+    notices that could only ever 404.
+
+    With MEDIA_BUCKET set the object is uploaded and a gs:// URI returned.
+    Without it the local path is returned unchanged, which is correct for a
+    laptop where the file really is still there.
+    """
+    bucket = _bucket_name()
+    if not bucket:
+        return str(path)
+    from google.cloud import storage
+
+    client = storage.Client(project=settings.project_id or None)
+    blob = client.bucket(bucket).blob(f"notices/{path.name}")
+    if not blob.exists():
+        blob.upload_from_filename(str(path), content_type="audio/mpeg")
+    return f"gs://{bucket}/notices/{path.name}"
+
+
+def media_exists(ref: str | None) -> bool:
+    """Whether there are actually bytes behind a recorded reference."""
+    if not ref:
+        return False
+    if ref.startswith("gs://"):
+        from google.cloud import storage
+
+        bucket, _, name = ref[5:].partition("/")
+        try:
+            client = storage.Client(project=settings.project_id or None)
+            return client.bucket(bucket).blob(name).exists()
+        except Exception:
+            return False
+    return Path(ref).is_file()
+
+
+def media_bytes(ref: str) -> bytes:
+    """Read media from wherever it was persisted."""
+    if ref.startswith("gs://"):
+        from google.cloud import storage
+
+        bucket, _, name = ref[5:].partition("/")
+        client = storage.Client(project=settings.project_id or None)
+        return client.bucket(bucket).blob(name).download_as_bytes()
+    return Path(ref).read_bytes()
 
 
 EXPLAINER_PROMPT = (

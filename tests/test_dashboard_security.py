@@ -237,3 +237,23 @@ def test_identity_switching_is_refused_once_auth_is_on(monkeypatch):
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     assert TestClient(app).get("/demo/as/parent",
                                follow_redirects=False).status_code == 403
+
+
+def test_no_audio_player_is_offered_without_bytes_behind_it():
+    """A control that cannot work is a worse promise than no control.
+
+    Chirp runs inside the tick's own container and used to write to its local
+    disk, so twenty notices carried a path whose file had never existed in the
+    dashboard's container. The player rendered; it could only ever 404.
+    """
+    from hopscotch.dashboard.app import _audio_cell
+
+    class Item:
+        id = "abc"
+        student_ref = "stu_x"
+        audio_path = "data/media/does-not-exist-anywhere.mp3"
+
+    assert "<audio" not in _audio_cell(Item())
+    Item.audio_path = None
+    assert "<audio" not in _audio_cell(Item())
+    assert "text only" in _audio_cell(Item())

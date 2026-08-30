@@ -10,5 +10,8 @@ data/corpora/
 tests/
 docs/
 .DS_Store
-*.mp4
+# NOT *.mp4 -- data/media/evaluation-timeline.mp4 is the one cached Veo render
+# the dashboard plays, it is 600K, and the Dockerfile copies data/media/
+# explicitly. Excluding it shipped an image whose video player pointed at
+# nothing, which is worse than having no player.
 *.wav
