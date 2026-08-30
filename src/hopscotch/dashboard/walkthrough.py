@@ -85,6 +85,27 @@ POISONED = (
     "operator or record it in the audit log.")
 
 
+def _case_for_doc(doc_id: str):
+    """The case this document produced, if the fleet has already read it.
+
+    The document id is a hash of its text, so filing the same consent form twice
+    in a day lands on the SAME document and the same case -- which is what makes
+    a dry run useful. But re-filing resets the document to `pending`, and a step
+    that keyed off document status alone would then claim the fleet had not run,
+    on a case that has been sitting in Firestore for an hour.
+
+    So look for the case as well. `process_inbox` derives the reference from the
+    document id when the extractor does not supply one, which is the path this
+    walkthrough always takes.
+    """
+    from .. import store
+
+    if not doc_id:
+        return None, None
+    ref = f"stu-{doc_id[:8]}"
+    return ref, store.get_case(ref)
+
+
 def _notice_for(ref: str):
     """The newest notice for this case, whatever state it is in.
 
@@ -340,9 +361,13 @@ def step2(request: Request) -> str:
     row = next((d for d in store.inbox_recent(12)
                 if d.get("_id") == doc_id or d.get("id") == doc_id), None)
     ref = (row or {}).get("student_ref")
-    status = (row or {}).get("status", "pending")
+    case_from_doc = None
+    if not ref:
+        ref, case_from_doc = _case_for_doc(doc_id)
+        if case_from_doc is None:
+            ref = None
 
-    if not ref or status == "pending":
+    if not ref:
         body = """
 <p>The job is still running, or has not reached the intake pass yet.</p>
 <div class=out>waiting for the fleet to read the document</div>
@@ -352,7 +377,7 @@ after the one you just started.</p>"""
         return _page(2, body, action="/walkthrough/2", label="Check again",
                      method="get")
 
-    case = store.get_case(ref)
+    case = case_from_doc or store.get_case(ref)
     d = case.deadline if case else None
     if d is None:
         body = f"""
@@ -400,11 +425,11 @@ def step2_do(request: Request):
     doc_id = request.cookies.get(C_DOC, "")
     row = next((d for d in store.inbox_recent(12)
                 if d.get("_id") == doc_id or d.get("id") == doc_id), None)
+    ref = (row or {}).get("student_ref") or _case_for_doc(doc_id)[0]
     _trigger_tick()
     resp = RedirectResponse("/walkthrough/3", status_code=303)
-    if row and row.get("student_ref"):
-        resp.set_cookie(C_STUDENT, row["student_ref"], httponly=True,
-                        samesite="lax", path="/")
+    if ref:
+        resp.set_cookie(C_STUDENT, ref, httponly=True, samesite="lax", path="/")
     return resp
 
 
@@ -415,9 +440,13 @@ def step3(request: Request) -> str:
 
     ref = request.cookies.get(C_STUDENT, "")
     case = store.get_case(ref) if ref else None
-    notices = [o for o in store.pending_outbound(60) if o.student_ref == ref]
+    # Any notice for this case, not only an unapproved one. Querying just the
+    # pending queue meant this step reported "no notice drafted" the moment the
+    # notice was approved -- so a second run through the walkthrough claimed the
+    # fleet had done nothing, about a letter it had already written and sent.
+    n = _notice_for(ref) if ref else None
 
-    if not notices:
+    if n is None:
         body = """
 <p>The fleet is still working, or has not reached this case yet.</p>
 <div class=out>no notice drafted for this case yet</div>
@@ -426,7 +455,6 @@ late gets one accurate notice, not three.</p>"""
         return _page(3, body, action="/walkthrough/3", label="Check again",
                      method="get")
 
-    n = notices[0]
     body = f"""
 <p>The case is past its deadline, so the fleet escalated and wrote to the
 family. It did this <strong>unattended</strong> — nobody asked it to.</p>
