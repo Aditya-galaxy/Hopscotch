@@ -1430,7 +1430,7 @@ def index(msg: str = "", who=Depends(principal)) -> str:
 {_banner()}
 {_flash(msg)}
 <p class=sub>{date.today().isoformat()} · every row below was written by an
-unattended agent, not a person. &nbsp;<a href="/walkthrough">Watch one case from start to finish &rarr;</a></p>
+unattended agent, not a person. &nbsp;<a href="/walkthrough">Open the demo &rarr;</a></p>
 {brief_html}
 <h2>At a glance</h2>
 <div class=tiles>

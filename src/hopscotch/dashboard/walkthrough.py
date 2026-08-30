@@ -45,18 +45,52 @@ class TourUnavailable(Exception):
     """Not an error the visitor caused, so it is not rendered as one."""
 
 
-def _guard() -> None:
-    """The walkthrough writes, so it lives under the same rule writes do.
+def guided() -> bool:
+    """True when the tour must read rather than act.
 
-    Raises a dedicated exception rather than a bare 403 because a stranger
-    arriving from the landing page has done nothing wrong -- they should get an
-    explanation of what the walkthrough does and how to run it, not a stack of
-    red text implying they broke something.
+    The eight steps are almost entirely reads -- a case, a deadline, a letter,
+    a claim summary. Only four of them write. So on the read-only deployment
+    the tour still runs end to end against real records; it simply narrates
+    what the fleet already did instead of doing it again. A visitor who clicks
+    "Open demo" should get the demo, not an explanation of why they cannot.
     """
     from .security import read_only
 
-    if read_only():
+    return read_only()
+
+
+def _guard() -> None:
+    """Refuse the four steps that WRITE. Reads never call this."""
+    if guided():
         raise TourUnavailable()
+
+
+def _showcase_ref() -> str | None:
+    """A case worth showing when the visitor has not filed one themselves.
+
+    Prefers a case that has actually been written to: a released letter is the
+    most complete story, then any drafted notice, then any case with a clock.
+    """
+    from .. import store
+
+    try:
+        for o in store.pending_outbound(60):
+            if store.delivered_to_family(o.student_ref):
+                return o.student_ref
+        pend = store.pending_outbound(60)
+        if pend:
+            return pend[0].student_ref
+        for c in store.open_cases():
+            if c.deadline is not None:
+                return c.student_ref
+    except Exception:
+        pass
+    return None
+
+
+def _ref(request: Request) -> str:
+    """The case this visitor is following: their own, or the showcase one."""
+    return request.cookies.get(C_STUDENT, "") or (_showcase_ref() or "")
 
 
 def _consent_text(name: str = "Amara Osei") -> str:
@@ -121,6 +155,19 @@ def _notice_for(ref: str):
     if not seen:
         return None
     return sorted(seen, key=lambda o: o.created_at, reverse=True)[0]
+
+
+def _act(nxt: int | str, do: str, label: str, guided_label: str = "") -> dict:
+    """Where the button goes.
+
+    In guided mode the tour narrates rather than acts, so every button is a
+    plain link to the next screen. Otherwise it posts and the step does the
+    real thing. Same eight screens either way.
+    """
+    if guided():
+        return {"action": f"/walkthrough/{nxt}",
+                "label": guided_label or label, "method": "get"}
+    return {"action": do, "label": label, "method": "post"}
 
 
 def _page(step: int, body: str, *, action: str = "", label: str = "",
@@ -250,7 +297,6 @@ with writes enabled on your own machine:</p>
 
 @router.get("", response_class=HTMLResponse)
 def start(request: Request) -> str:
-    _guard()
     from .app import CSS, FONTS
     from ..config import PROJECT_NAME
 
@@ -283,7 +329,6 @@ staged.</strong></p>
 
 @router.get("/0", response_class=HTMLResponse)
 def step0() -> str:
-    _guard()
     body = f"""
 <p>This is how the work actually arrives: a scan, a phone photo, a forwarded
 email. Someone in the front office types or pastes it in.</p>
@@ -292,10 +337,11 @@ cannot read this document. It screens it and parks it, and the fleet picks it
 up on its next run — so a compromised coordinator surface still cannot make a
 model do anything.</p>
 <form method=post action="/walkthrough/0/do">
-  <textarea name=text>{e(_consent_text())}</textarea>
-  <div class=touract><button class='btn big'>File it with the district &rarr;</button></div>
+  <textarea name=text{" readonly" if guided() else ""}>{e(_consent_text())}</textarea>
 </form>"""
-    return _page(0, body, note=(
+    return _page(0, body, **_act(1, "/walkthrough/0/do",
+                                 "File it with the district",
+                                 "See what happened to it"), note=(
         "The dates are generated from today, so the case opens already past its "
         "deadline and the fleet has something real to do."))
 
@@ -317,12 +363,16 @@ def step0_do(request: Request):
 
 @router.get("/1", response_class=HTMLResponse)
 def step1(request: Request) -> str:
-    _guard()
     from .. import store
 
     doc_id = request.cookies.get(C_DOC, "")
     row = next((d for d in store.inbox_recent(12) if d.get("_id") == doc_id
                 or d.get("id") == doc_id), None)
+    if row is None:
+        # A guided visitor filed nothing, so show a document the fleet really
+        # did screen rather than a placeholder status.
+        row = next((d for d in store.inbox_recent(12)
+                    if d.get("status") in ("read", "pending")), None)
     status = (row or {}).get("status", "pending")
     body = f"""
 <p>The document is in the queue, screened and waiting. <strong>Model Armor sees
@@ -335,7 +385,8 @@ read by: nothing yet — the fleet runs next</div>
 <p>Now run the fleet. This triggers the <strong>same Cloud Run job</strong> the
 hourly scheduler fires; the dashboard has no Vertex access of its own and can
 only ask the job to run.</p>"""
-    return _page(1, body, action="/walkthrough/1/do", label="Run the fleet",
+    return _page(1, body, **_act(2, "/walkthrough/1/do", "Run the fleet",
+                                 "See what the fleet did"),
                  note=("The job takes about three minutes -- measured, not "
                        "estimated. It recomputes every open deadline, then "
                        "screens and extracts the new document at the end."))
@@ -354,7 +405,6 @@ def step1_do(request: Request):
 
 @router.get("/2", response_class=HTMLResponse)
 def step2(request: Request) -> str:
-    _guard()
     from .. import store
 
     doc_id = request.cookies.get(C_DOC, "")
@@ -366,6 +416,10 @@ def step2(request: Request) -> str:
         ref, case_from_doc = _case_for_doc(doc_id)
         if case_from_doc is None:
             ref = None
+    if not ref:
+        # Guided visitors follow a case the fleet has already worked, so the
+        # step shows a real clock instead of a spinner they cannot resolve.
+        ref = _showcase_ref()
 
     if not ref:
         body = """
@@ -395,8 +449,8 @@ started.</p>
 <dl class=kv>
   <dt>Case</dt><dd class=mono>{e(ref)}</dd>
   <dt>School</dt><dd>{e(case.school_code)}</dd>
-  <dt>Signed on</dt><dd class=mono>{e(str(case.consent.consent_signed_on))}</dd>
-  <dt>Received on</dt><dd class=mono>{e(str(case.consent.received_on))}</dd>
+  <dt>Signed on</dt><dd class=mono>{e(str(case.consent.consent_signed_on)) if case.consent.consent_signed_on else "not legible"}</dd>
+  <dt>Received on</dt><dd class=mono>{e(str(case.consent.received_on)) if case.consent.received_on else "not legible"}</dd>
   <dt>Clock starts</dt><dd class=mono>{e(str(d.clock_started_on))}</dd>
   <dt>Due</dt><dd class=mono>{e(d.due_on.isoformat())}</dd>
   <dt>Status</dt><dd>{abs(days)} days {'overdue' if days < 0 else 'remaining'}</dd>
@@ -407,8 +461,9 @@ not the day the parent signed it. That is the trigger in 34 CFR
 due sixty days from the tenth.</p>
 <div class=out>{e(d.explanation)}</div>"""
     resp_body = body
-    return _page(2, resp_body, action="/walkthrough/2/do",
-                 label="Run the fleet again", note=(
+    return _page(2, resp_body, **_act(3, "/walkthrough/2/do",
+                                     "Run the fleet again",
+                                     "See what it did next"), note=(
                      "The case was created during the intake pass, which runs "
                      "after the deadline scan — so it escalates on the next "
                      "run. It runs hourly regardless."))
@@ -435,10 +490,9 @@ def step2_do(request: Request):
 
 @router.get("/3", response_class=HTMLResponse)
 def step3(request: Request) -> str:
-    _guard()
     from .. import store
 
-    ref = request.cookies.get(C_STUDENT, "")
+    ref = _ref(request)
     case = store.get_case(ref) if ref else None
     # Any notice for this case, not only an unapproved one. Querying just the
     # pending queue meant this step reported "no notice drafted" the moment the
@@ -475,10 +529,9 @@ read.</p>"""
 
 @router.get("/4", response_class=HTMLResponse)
 def step4(request: Request) -> str:
-    _guard()
     from .. import store
 
-    n = _notice_for(request.cookies.get(C_STUDENT, ""))
+    n = _notice_for(_ref(request))
     if n is None:
         return _page(4, "<p>No notice on file for this walkthrough.</p>",
                      action="/walkthrough/5", label="Continue", method="get")
@@ -497,8 +550,9 @@ record.</p>"""
                      f"{e(n.approved_by or 'a coordinator')}</div>",
                      action="/walkthrough/5", label="See what the family gets",
                      method="get")
-    return _page(4, body, action="/walkthrough/4/do",
-                 label="Approve and release it")
+    return _page(4, body, **_act(5, "/walkthrough/4/do",
+                                 "Approve and release it",
+                                 "See what the family received"))
 
 
 @router.post("/4/do")
@@ -508,7 +562,7 @@ def step4_do(request: Request):
     from .security import require_same_origin
 
     require_same_origin(request)
-    n = _notice_for(request.cookies.get(C_STUDENT, ""))
+    n = _notice_for(_ref(request))
     if n is not None and n.status.value == "pending_approval":
         approve(n.id, approved_by="coordinator@district.org")
     return RedirectResponse("/walkthrough/5", status_code=303)
@@ -516,11 +570,10 @@ def step4_do(request: Request):
 
 @router.get("/5", response_class=HTMLResponse)
 def step5(request: Request) -> str:
-    _guard()
     from .. import store
     from ..media import media_exists
 
-    ref = request.cookies.get(C_STUDENT, "")
+    ref = _ref(request)
     letters = store.delivered_to_family(ref) if ref else []
     if not letters:
         body = """
@@ -550,7 +603,6 @@ portal implying otherwise would be worse than no portal.</p>"""
 
 @router.get("/6", response_class=HTMLResponse)
 def step6(request: Request) -> str:
-    _guard()
     from .. import store
 
     # Same call the dashboard's claim block makes, so the numbers on this page
@@ -590,14 +642,14 @@ ingests.</p>"""
 
 @router.get("/7", response_class=HTMLResponse)
 def step7() -> str:
-    _guard()
     body = f"""
 <p>Everything so far assumed the document was honest. This one is not — it is a
 consent form with instructions buried inside it.</p>
 <div class=out>{e(POISONED)}</div>
 <p>File it the same way the first one was filed, and watch where it stops.</p>"""
-    return _page(7, body, action="/walkthrough/7/do",
-                 label="File the poisoned form", note=(
+    return _page(7, body, **_act("done", "/walkthrough/7/do",
+                                 "File the poisoned form",
+                                 "See where it stopped"), note=(
                      "This is a hand-written reproduction of a published attack "
                      "pattern. It is inert text: nothing executable, no payload."))
 
@@ -618,7 +670,6 @@ def step7_do(request: Request):
 
 @router.get("/done", response_class=HTMLResponse)
 def done() -> str:
-    _guard()
     from .. import store
 
     blocked = [d for d in store.inbox_recent(12) if d.get("status") == "blocked"]
