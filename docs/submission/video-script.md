@@ -47,15 +47,15 @@ and the public demo refuses them. That is a feature, and judges notice it.
 2. **The walkthrough** — http://localhost:8080/walkthrough  *(the spine of the demo)*
 3. **The dashboard** — http://localhost:8080/app
    *(the identity switcher sits at the very top of every staff page)*
-3. **Cloud Run job executions** —
+4. **Cloud Run job executions** —
    `console.cloud.google.com/run/jobs/details/us-central1/agentx-tick/executions?project=kronagent`
-4. **Cloud Scheduler** — `console.cloud.google.com/cloudscheduler?project=kronagent`
-5. **Logs Explorer**, pre-run this query so results are on screen:
+5. **Cloud Scheduler** — `console.cloud.google.com/cloudscheduler?project=kronagent`
+6. **Logs Explorer**, pre-run this query so results are on screen:
    ```
    resource.labels.job_name="agentx-tick" AND textPayload:"aiplatform.googleapis.com"
    ```
-6. **Cloud Trace** — `console.cloud.google.com/traces/list?project=kronagent`
-7. **Firestore data** —
+7. **Cloud Trace** — `console.cloud.google.com/traces/list?project=kronagent`
+8. **Firestore data** —
    `console.cloud.google.com/firestore/databases/-default-/data?project=kronagent`
 
 ### Two warnings
@@ -128,7 +128,7 @@ Do not try to fill three minutes of dead air by talking. Cut.
 ## 2:25 – 3:15 · Running on Google Cloud
 The explicit block. Move briskly; four tabs, roughly twelve seconds each.
 
-1. **Cloud Run job executions** — 208 executions, hourly, unbroken since
+1. **Cloud Run job executions** — 235+ executions, hourly, unbroken since
    22 August. Nobody watching. *This is the single most convincing frame in the
    video; give it the longest beat.*
 2. **Cloud Scheduler** — `agentx-hourly`, `0 * * * *`, **ENABLED**, last run
