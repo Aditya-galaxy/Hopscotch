@@ -37,7 +37,8 @@ STEPS = [
     ("The fleet that did it", "Architecture"),
     ("A person decides whether it sends", "SPED coordinator"),
     ("What the family receives", "Parent"),
-    ("The same session, as money", "Business office"),
+    ("The same session, as money", "Provider"),
+    ("What an audit would throw out", "Business office"),
     ("What it refuses", "The fleet"),
 ]
 
@@ -158,6 +159,22 @@ def _showcase_doc(ref: str) -> dict | None:
                 return d
     except Exception:
         pass
+    return None
+
+
+def _readiness_for(ref: str) -> dict | None:
+    """The claim assessment for the case being followed.
+
+    The money half of this product used to appear in the tour only as
+    district-wide totals, which broke the premise at exactly the point it
+    mattered: eight screens follow one child, and then the ninth changes the
+    subject to an aggregate. This is that child's own session.
+    """
+    from .store_shim import readiness_rows
+
+    for r in readiness_rows():
+        if r.get("student_ref") == ref:
+            return r
     return None
 
 
@@ -707,7 +724,61 @@ portal implying otherwise would be worse than no portal.</p>"""
 
 
 @router.get("/7", response_class=HTMLResponse)
-def step6(request: Request) -> str:
+def step7(request: Request) -> str:
+    """This child's own session, as a claim line.
+
+    The money half used to appear only as district totals, which changed the
+    subject at the exact moment it mattered -- eight screens follow one child
+    and then the ninth talks about the district. This follows the same child.
+    """
+    from .. import store
+
+    ref = _ref(request)
+    r = _readiness_for(ref)
+    sessions = store.deliveries_for(ref) if ref else []
+
+    if r is None:
+        body = """
+<p>No session has been logged against this case yet, so there is nothing to
+assess. The claim side only ever runs on services that were actually
+delivered &mdash; it never infers one from a deadline.</p>"""
+        return _page(7, body, action="/walkthrough/8",
+                     label="See it across the district", method="get")
+
+    checks = ""
+    for c in r.get("checks", []):
+        mark = "PASS" if c.get("passed") else ("BLOCK" if c.get("blocking") else "FLAG")
+        checks += (f"<tr><td class=mono>{e(mark)}</td>"
+                   f"<td>{e(c.get('requirement',''))}</td>"
+                   f"<td class=mono>{e((c.get('detail') or '')[:60])}</td></tr>")
+
+    sess = sessions[0] if sessions else {}
+    body = f"""
+<p>The district can bill Medicaid for the very services these deadlines govern.
+Same child, same IEP, same coordinator &mdash; a second question asked of records
+the fleet already holds: <strong>would this session survive an audit?</strong></p>
+<dl class=kv>
+  <dt>Session</dt><dd class=mono>{e(str(sess.get('service_date','—')))} &middot;
+    {e(str(sess.get('minutes','—')))} minutes &middot;
+    {e(str(sess.get('units_billed','—')))} units</dd>
+  <dt>Note</dt><dd>{e((sess.get('note') or '')[:120])}</dd>
+  <dt>Verdict</dt><dd>{"billable" if r.get("billable") else "would be denied"}</dd>
+</dl>
+<div class=scroll><table>
+<tr><th>result</th><th>requirement</th><th>detail</th></tr>{checks}</table></div>
+<p style="margin-top:16px">Eight of those are rules. The last one is not: a model
+reads the note and asks whether it describes the service the IEP actually
+authorised. That is the check no pattern can make, and on the next screen it is
+the one doing the most work.</p>
+<p>Nothing is submitted from here. The export is what a billing vendor ingests,
+and <strong>export is not submission</strong> &mdash; the district keeps that
+decision, and the liability that comes with it.</p>"""
+    return _page(7, body, action="/walkthrough/8",
+                 label="Now across the district", method="get")
+
+
+@router.get("/8", response_class=HTMLResponse)
+def step8(request: Request) -> str:
     from .. import store
 
     # Same call the dashboard's claim block makes, so the numbers on this page
@@ -741,25 +812,25 @@ the whole argument for spending a model call.</p>
 <p>Over-billing blocks. Under-billing is surfaced as money the district left
 behind. Nothing is submitted from here; the export is what a billing vendor
 ingests.</p>"""
-    return _page(7, body, action="/walkthrough/8",
+    return _page(8, body, action="/walkthrough/9",
                  label="One more thing", method="get")
 
 
-@router.get("/8", response_class=HTMLResponse)
+@router.get("/9", response_class=HTMLResponse)
 def step7() -> str:
     body = f"""
 <p>Everything so far assumed the document was honest. This one is not — it is a
 consent form with instructions buried inside it.</p>
 <div class=out>{e(POISONED)}</div>
 <p>File it the same way the first one was filed, and watch where it stops.</p>"""
-    return _page(8, body, **_act("done", "/walkthrough/8/do",
+    return _page(9, body, **_act("done", "/walkthrough/9/do",
                                  "File the poisoned form",
                                  "See where it stopped"), note=(
                      "This is a hand-written reproduction of a published attack "
                      "pattern. It is inert text: nothing executable, no payload."))
 
 
-@router.post("/8/do")
+@router.post("/9/do")
 def step7_do(request: Request):
     _guard()
     from .. import store
