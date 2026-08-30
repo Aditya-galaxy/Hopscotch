@@ -108,9 +108,33 @@ def persist(path: Path) -> str:
     return f"gs://{bucket}/notices/{path.name}"
 
 
-def media_exists(ref: str | None) -> bool:
-    """Whether there are actually bytes behind a recorded reference."""
+def is_servable(ref: str | None) -> bool:
+    """Whether this reference is one we are willing to serve at all.
+
+    A stored path is DATA, and data can be wrong or tampered with. A gs:// URI
+    is only servable if it names the bucket this deployment is configured for;
+    otherwise a doctored audio_path could aim the dashboard at any object its
+    service account can read.
+    """
     if not ref:
+        return False
+    if ref.startswith("gs://"):
+        bucket = _bucket_name()
+        return bool(bucket) and ref.startswith(f"gs://{bucket}/notices/")
+    return True
+
+
+def media_exists(ref: str | None) -> bool:
+    """Whether there are actually bytes behind a recorded reference.
+
+    Applies the SAME servability rule the serving route does. These two used to
+    disagree: this function asked Cloud Storage directly while the route checked
+    the configured bucket, so with MEDIA_BUCKET unset -- which is exactly how
+    the local demo script ran -- the page rendered a player that answered 404.
+    One rule, asked in one place, so the UI cannot promise what the route will
+    refuse.
+    """
+    if not is_servable(ref):
         return False
     if ref.startswith("gs://"):
         from google.cloud import storage

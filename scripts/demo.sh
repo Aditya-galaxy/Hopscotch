@@ -146,4 +146,5 @@ exec env PYTHONPATH=src \
   GOOGLE_CLOUD_PROJECT="$PROJECT" \
   REQUIRE_AUTH=false \
   DEMO_ALLOW_WRITES=true \
+  MEDIA_BUCKET="${MEDIA_BUCKET:-kronagent-hopscotch-media}" \
   "$PY" -m uvicorn hopscotch.dashboard.app:app --host 127.0.0.1 --port "$PORT"

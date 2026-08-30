@@ -601,9 +601,9 @@ def outbox_audio(item_id: str, who=Depends(principal)):
         # Persisted media. The bucket prefix is fixed here rather than taken
         # from the record, so a tampered audio_path cannot point the dashboard
         # at an arbitrary object.
-        from ..media import media_bytes
+        from ..media import is_servable, media_bytes
 
-        if not ref.startswith(f"gs://{os.environ.get('MEDIA_BUCKET','')}/notices/"):
+        if not is_servable(ref):
             raise HTTPException(404, "not found")
         try:
             return Response(content=media_bytes(ref), media_type="audio/mpeg")
