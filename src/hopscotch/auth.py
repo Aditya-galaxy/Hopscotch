@@ -27,6 +27,7 @@ class Role(str, Enum):
     LIAISON = "liaison"               # redacted view, family contact
     BUSINESS = "business"             # claim readiness, no clinical
     ADMIN = "admin"
+    PARENT = "parent"                 # one child's status, and only theirs
 
 
 # Human roles reuse the agent scope vocabulary deliberately.
@@ -42,6 +43,10 @@ ROLE_SCOPES: dict[Role, frozenset[str]] = {
     Role.ADMIN: frozenset({
         "case.read", "case.write", "notice.approve", "claim.read",
         "claim.export", "registry.publish"}),
+    # A parent sees their own child's status and the letters actually sent to
+    # them. `case.read_own` carries a record-level restriction as well as a
+    # field-level one -- see Principal.student_ref.
+    Role.PARENT: frozenset({"case.read_own"}),
 }
 
 
@@ -53,14 +58,57 @@ class NotPermitted(PermissionError):
     """Known person, wrong role."""
 
 
+# Roles limited to a single record rather than to a set of fields. Everything
+# else is bounded by the scope table; these are bounded by a row as well.
+RECORD_SCOPED_ROLES = frozenset({Role.PARENT})
+
+
+class NotThisRecord(PermissionError):
+    """Right identity, wrong record.
+
+    Distinct from NotPermitted, which is about a KIND of data. This is about a
+    row: a parent holds a perfectly valid scope for evaluation dates and still
+    may not read another family's child. Field-level projection cannot express
+    that -- it decides what a caller sees, never whose.
+    """
+
+
 @dataclass(frozen=True)
 class Principal:
     email: str
     role: Role
+    # Set only for identities bound to a single record. None means "not record
+    # scoped", which is every staff role: they are limited by FIELD, not by row.
+    student_ref: str | None = None
 
     @property
     def scopes(self) -> frozenset[str]:
         return ROLE_SCOPES[self.role]
+
+    def require_record(self, student_ref: str) -> None:
+        """Refuse a record this identity is not bound to.
+
+        Raises rather than filtering, and callers answer 404 rather than 403:
+        telling a stranger that a student exists is itself a disclosure.
+
+        Fails CLOSED for record-scoped roles. Returning early on a missing
+        binding is correct for staff, who are limited by field rather than by
+        row -- but for a parent it inverts the rule: an unbound parent would be
+        admitted to every child instead of none. That is precisely the bug this
+        method exists to prevent, and it is the shape a missing environment
+        variable takes in production.
+        """
+        if self.role not in RECORD_SCOPED_ROLES:
+            return
+        if self.student_ref is None:
+            raise NotThisRecord(
+                f"{self.email} holds the record-scoped role "
+                f"'{self.role.value}' with no student binding; refusing every "
+                f"record rather than admitting all of them")
+        if student_ref != self.student_ref:
+            raise NotThisRecord(
+                f"{self.email} is bound to {self.student_ref} and may not read "
+                f"{student_ref}")
 
     def require(self, scope: str) -> None:
         if scope not in self.scopes:
@@ -86,6 +134,24 @@ def _role_for(email: str) -> Role:
             if who.strip().lower() == email.lower():
                 return Role(role.strip())
     return Role(os.environ.get("DEFAULT_ROLE", Role.LIAISON.value))
+
+
+def _student_for(email: str) -> str | None:
+    """Which child this address belongs to, for parent identities.
+
+    PARENT_ASSIGNMENTS='a@x.com:stu_0042,b@y.com:stu_0043'
+
+    A parent whose address is not listed gets no binding, and a parent with no
+    binding is refused outright rather than shown everything -- an unlisted
+    parent is a configuration error, and the safe reading of a configuration
+    error is "no access".
+    """
+    for pair in os.environ.get("PARENT_ASSIGNMENTS", "").split(","):
+        if ":" in pair:
+            who, _, ref = pair.partition(":")
+            if who.strip().lower() == email.lower():
+                return ref.strip()
+    return None
 
 
 def verify(id_token_str: str) -> Principal:
@@ -128,7 +194,13 @@ def verify(id_token_str: str) -> Principal:
             s.set_attribute("ok", False)
             raise NotAuthenticated(f"{email} is outside the permitted domains")
 
-        p = Principal(email=email, role=_role_for(email))
+        role = _role_for(email)
+        bound = _student_for(email) if role is Role.PARENT else None
+        if role is Role.PARENT and bound is None:
+            raise NotAuthenticated(
+                f"{email} is assigned the parent role but bound to no student; "
+                "refusing rather than admitting them to every record")
+        p = Principal(email=email, role=role, student_ref=bound)
         s.set_attribute("role", p.role.value)
         return p
 

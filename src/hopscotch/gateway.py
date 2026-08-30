@@ -24,6 +24,12 @@ from .telemetry import span
 # What each read scope is allowed to see. Ordered least to most sensitive.
 SCOPE_SENSITIVITY: dict[str, Sensitivity] = {
     "case.read_redacted": Sensitivity.DIRECTORY,
+    # A parent's portal shows status, dates and the letters actually sent --
+    # not the clinical file. That is a PRODUCT decision, not a statement about
+    # their rights: FERPA gives parents the right to inspect the complete
+    # record, which is a records request handled by a person, and the portal
+    # says so on the page rather than quietly implying the file is all there is.
+    "case.read_own": Sensitivity.ADMINISTRATIVE,
     "case.read_dates": Sensitivity.ADMINISTRATIVE,
     "case.read": Sensitivity.ADMINISTRATIVE,
     "case.read_full": Sensitivity.CLINICAL,

@@ -166,3 +166,74 @@ def test_no_write_ever_redirects_onto_the_landing_page():
     src = Path(__file__).resolve().parents[1] / "src/hopscotch/dashboard/app.py"
     bad = re.findall(r'RedirectResponse\(\s*f?"/(?:\?|"|,)', src.read_text())
     assert not bad, f"redirect targets the landing page: {bad}"
+
+
+# --- the family surface and record-level scoping -----------------------------
+
+def _as(role, monkeypatch, student=None):
+    monkeypatch.setenv("REQUIRE_AUTH", "false")
+    c = TestClient(app)
+    c.cookies.set("demo_role", role)
+    if student:
+        c.cookies.set("demo_student", student)
+    return c
+
+
+def test_a_parent_cannot_open_another_familys_case(monkeypatch):
+    """The boundary this whole role exists for.
+
+    Field-level projection decides WHAT a caller sees and can never express
+    WHOSE. A parent holds a legitimate scope for evaluation dates and still may
+    not read another child's.
+    """
+    c = _as("parent", monkeypatch, student="stu_0001")
+    assert c.get("/case/stu_0001").status_code == 200
+    assert c.get("/case/stu_0017").status_code == 404
+
+
+def test_the_refusal_is_404_not_403(monkeypatch):
+    """403 confirms the record exists and belongs to someone else, which tells
+    a stranger a named student is enrolled and under evaluation."""
+    c = _as("parent", monkeypatch, student="stu_0001")
+    assert c.get("/case/stu_0017").status_code == 404
+
+
+def test_an_unbound_parent_is_refused_every_record_not_all_of_them(monkeypatch):
+    """The fail-open that was actually there: require_record returned early on
+    a missing binding, which is right for staff and inverted for a parent."""
+    from hopscotch.auth import NotThisRecord, Principal, Role
+
+    p = Principal(email="p@example.com", role=Role.PARENT, student_ref=None)
+    try:
+        p.require_record("stu_0001")
+        raise AssertionError("an unbound parent was admitted to a record")
+    except NotThisRecord:
+        pass
+
+
+def test_a_parent_is_shown_no_clinical_field(monkeypatch):
+    from hopscotch.auth import Principal, Role
+    from hopscotch.gateway import project_for_scopes
+    from hopscotch.schemas import Case, CaseStage, ConsentEvent
+    from datetime import date
+
+    case = Case(student_ref="stu_x", school_code="EL-1", jurisdiction="US_FEDERAL",
+                stage=CaseStage.CONSENT_RECEIVED,
+                consent=ConsentEvent(student_ref="stu_x", school_code="EL-1",
+                                     jurisdiction="US_FEDERAL",
+                                     received_on=date(2026, 6, 1),
+                                     referral_reason="clinical narrative here",
+                                     confidence=0.9, source_document="raw form"))
+    view = project_for_scopes(Principal(email="p@e.com", role=Role.PARENT,
+                                        student_ref="stu_x").scopes, case)
+    consent = view.get("consent", {})
+    assert "referral_reason" not in consent
+    assert "source_document" not in consent
+    assert "received_on" in consent, "a parent must still see their own dates"
+
+
+def test_identity_switching_is_refused_once_auth_is_on(monkeypatch):
+    """It is a demo affordance, not an impersonation feature."""
+    monkeypatch.setenv("REQUIRE_AUTH", "true")
+    assert TestClient(app).get("/demo/as/parent",
+                               follow_redirects=False).status_code == 403

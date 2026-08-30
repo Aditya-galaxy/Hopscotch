@@ -266,6 +266,24 @@ def approved_outbound(limit: int = 20) -> list:
     return [Outbound.model_validate(d.to_dict()) for d in q.stream()]
 
 
+def delivered_to_family(student_ref: str, limit: int = 20) -> list:
+    """Notices a family may actually see: approved or sent, never drafts.
+
+    A parent must not be shown something a human has not released. The fleet
+    writes a letter and a named person decides whether it goes -- surfacing the
+    draft would quietly undo that gate, and would show families text that may
+    yet be rejected.
+    """
+    from .delivery import Outbound
+
+    q = (_client().collection("outbox")
+         .where(filter=firestore.FieldFilter("student_ref", "==", student_ref))
+         .limit(limit))
+    out = [Outbound.model_validate(d.to_dict()) for d in q.stream()]
+    out = [o for o in out if o.status.value in ("approved", "sent")]
+    return sorted(out, key=lambda o: o.created_at, reverse=True)
+
+
 def outbox_summary() -> dict:
     rows = [d.to_dict() for d in _client().collection("outbox").limit(500).stream()]
     by = {}

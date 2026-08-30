@@ -16,6 +16,7 @@ act.
 from __future__ import annotations
 
 import html
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from datetime import date
@@ -24,6 +25,7 @@ from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from ..config import PROJECT_NAME
+from ..auth import NotThisRecord, auth_required
 from .security import (
     demo_writes_enabled,
     writable,
@@ -38,6 +40,8 @@ app = FastAPI(title=f"{PROJECT_NAME} — coordinator",
 app.add_middleware(SecurityHeaders)
 
 e = html.escape
+
+log = logging.getLogger("hopscotch.dashboard")
 
 _SITE = Path(__file__).resolve().parents[3] / "site"
 
@@ -173,6 +177,34 @@ tbody tr:hover{background:var(--sunk)}
 .btn.ghost:hover{background:var(--sunk);filter:none}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 form.inline{display:inline}
+/* ---- demo identity switcher -------------------------------------------- */
+.switcher{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:10px 0 0;margin-bottom:4px}
+.swlabel{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);font-weight:650;margin-right:2px}
+.swtab{font-size:.8rem;padding:5px 11px;border-radius:999px;
+  border:1px solid var(--rule);color:var(--soft);background:var(--surface);
+  text-decoration:none;white-space:nowrap}
+.swtab:hover{background:var(--sunk)}
+.swtab.on{background:var(--accent);border-color:var(--accent);color:#fff;
+  font-weight:600}
+@media(prefers-color-scheme:dark){.swtab.on{color:#0E110F}}
+.swnote{font-size:.76rem;color:var(--muted);flex-basis:100%;margin-top:2px}
+
+/* ---- the family surface ------------------------------------------------- */
+.tiles.fam{grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+  margin-bottom:6px}
+.tiles.fam .tile .n{font-size:1.85rem}
+.letter{background:var(--surface);border:1px solid var(--rule);border-radius:10px;
+  padding:18px 20px;margin-bottom:12px;box-shadow:var(--shadow)}
+.letter h3{margin:0 0 3px;font-size:1rem}
+.lettermeta{margin:0 0 12px;font-size:.75rem;color:var(--muted)}
+.letterbody{margin:0 0 12px;white-space:pre-wrap;font-size:.92rem;
+  line-height:1.65;color:var(--soft);max-width:66ch}
+.rights{background:var(--surface);border:1px solid var(--rule);
+  border-left:3px solid var(--accent);border-radius:10px;padding:16px 20px}
+.rights p{margin:0 0 10px;font-size:.9rem;color:var(--soft);max-width:70ch}
+.rights p:last-child{margin-bottom:0}
 .field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:150px}
 .field>span{font-size:.71rem;text-transform:uppercase;letter-spacing:.06em;
   color:var(--muted);font-weight:650}
@@ -211,17 +243,63 @@ footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--rule);
 
 # --- identity ---------------------------------------------------------------
 
-def principal(authorization: str = Header(default="")):
+@app.exception_handler(NotThisRecord)
+def _not_this_record(request: Request, exc: NotThisRecord):
+    """404, deliberately, not 403.
+
+    403 confirms the record exists and merely belongs to someone else, which
+    tells a stranger that a given student is enrolled and under evaluation.
+    404 tells them nothing. The refusal is still audited server-side.
+    """
+    log.warning("record-scope refusal: %s", exc)
+    return HTMLResponse("<h1>404</h1><p>No such case.</p>", status_code=404)
+
+
+DEMO_IDENTITIES: dict[str, tuple[str, str]] = {
+    "coordinator": ("coordinator@district.org", "SPED coordinator"),
+    "psychologist": ("psych@district.org", "School psychologist"),
+    "liaison": ("liaison@district.org", "Family liaison"),
+    "business": ("business@district.org", "Business office"),
+    "admin": ("admin@district.org", "District administrator"),
+    "parent": ("parent@example.com", "Parent"),
+}
+
+
+def _demo_principal(request: Request):
+    """The identity being previewed. Only ever called with auth off."""
+    from ..auth import Principal, Role
+
+    want = (request.cookies.get("demo_role") or "coordinator").lower()
+    if want not in DEMO_IDENTITIES:
+        want = "coordinator"
+    email, _label = DEMO_IDENTITIES[want]
+    bound = request.cookies.get("demo_student") if want == "parent" else None
+    if want == "parent" and not bound:
+        # A parent must always be bound to exactly one child. Without this the
+        # preview would hold a record-scoped role with no record, which now
+        # refuses everything -- correct, but it would make the demo look broken
+        # rather than making the boundary visible.
+        bound = _demo_family_ref()
+    return Principal(email=email, role=Role(want), student_ref=bound)
+
+
+def principal(request: Request, authorization: str = Header(default="")):
     """Resolve the caller.
 
     Auth is ON unless REQUIRE_AUTH=false is set explicitly, because a missing
     setting must lock people out rather than expose records. When it is off the
     app is read-only and says so.
+
+    With auth off ONLY, a `demo_role` cookie selects which identity to render
+    as, so the same records can be shown from a coordinator's, a liaison's, a
+    business officer's and a parent's side without five sign-ins. It is read
+    only on this branch: once auth is on, the cookie is never consulted and the
+    identity comes from a verified Google token, full stop.
     """
     from ..auth import NotAuthenticated, Principal, Role, auth_required, verify
 
     if not auth_required():
-        return Principal(email="demo (unauthenticated)", role=Role.COORDINATOR)
+        return _demo_principal(request)
     token = authorization.removeprefix("Bearer ").strip()
     if not token:
         raise HTTPException(401, "sign in required")
@@ -403,23 +481,36 @@ def correct_case(student_ref: str, request: Request, field: str = Form(...),
 # --- media, authorized ------------------------------------------------------
 
 @app.get("/outbox/{item_id}/audio")
-def outbox_audio(item_id: str, who=Depends(principal), _w=Depends(writable)):
+def outbox_audio(item_id: str, who=Depends(principal)):
     """Audio is reached through the outbox item it belongs to, never by filename.
 
     The previous route served any file in the media directory to anyone who knew
     its name -- no authentication, no authorization. Names were content hashes,
     which is obscurity, not access control.
+
+    No `writable` dependency, because this is a GET. It picked one up when the
+    write guard moved onto a dependency and the edit matched every handler
+    ending `who=Depends(principal))`, which silently made the spoken notices
+    403 on the read-only demo -- the one deployment where anyone listens to
+    them. Reading is gated by scope below; writing is what needs the guard.
     """
     from pathlib import Path
 
     from .. import store
     from ..media import MEDIA_DIR
 
-    _needs(who, "case.read_redacted" if "case.read_redacted" in who.scopes
-           else "case.read")
+    for scope in ("case.read_own", "case.read_redacted", "case.read"):
+        if scope in who.scopes:
+            break
+    else:
+        scope = "case.read"
+    _needs(who, scope)
     item = store.get_outbound(item_id)
     if item is None or not item.audio_path:
         raise HTTPException(404, "no audio for this notice")
+    # A parent may hear the letter written to THEM and no one else. Field-level
+    # scope cannot express that; the binding is on the record.
+    who.require_record(item.student_ref)
 
     p = Path(item.audio_path).resolve()
     root = MEDIA_DIR.resolve()
@@ -589,6 +680,13 @@ def _outbox_block(who) -> str:
             act = '<span class=empty>no approval scope</span>'
         audio = (f"<audio controls preload=none src='/outbox/{e(i.id)}/audio'></audio>"
                  if i.audio_path else "")
+        # Jump straight to what this family will see once it is released. The
+        # point of the demo is the two sides of one action, so the link belongs
+        # on the row where the action happens.
+        if not auth_required():
+            act += (f" <a class='btn ghost' "
+                    f"href='/demo/as/parent?student={e(i.student_ref)}'>"
+                    f"View as this family</a>")
         rows += (f"<tr><td class=mono>{e(i.student_ref)}</td>"
                  f"<td>{e(i.notice_type.replace('_',' '))}</td>"
                  f"<td class=mono>{e(i.language)}</td>"
@@ -792,7 +890,13 @@ def case_detail(student_ref: str, msg: str = "", who=Depends(principal)) -> str:
     from .. import store
     from ..gateway import project_for_scopes
 
-    _needs(who, "case.read" if "case.read" in who.scopes else "case.read_redacted")
+    who.require_record(student_ref)
+    for scope in ("case.read", "case.read_own", "case.read_redacted"):
+        if scope in who.scopes:
+            break
+    else:
+        scope = "case.read"
+    _needs(who, scope)
     case = store.get_case(student_ref)
     if case is None:
         raise HTTPException(404, "no such case")
@@ -912,6 +1016,198 @@ gateway never returns them, so they cannot leak from a page that never had them.
 <div class=scroll><table><tr><th>field</th><th>value</th></tr>{projected}</table></div>
 <footer>{PROJECT_NAME} · agents on Cloud Run and Agent Engine · all data synthetic</footer>
 </div></body></html>"""
+
+
+def _demo_family_ref() -> str | None:
+    """Which child an unbound demo parent is shown.
+
+    In a real deployment a parent is bound by PARENT_ASSIGNMENTS and this never
+    runs. In the demo, pick the family with a notice waiting so the page has
+    something real to show; fall back to any open case.
+    """
+    from .. import store
+    try:
+        pend = store.pending_outbound(20)
+        if pend:
+            return pend[0].student_ref
+        for c in store.open_cases():
+            return c.student_ref
+    except Exception:
+        pass
+    return None
+
+
+@app.get("/family", response_class=HTMLResponse)
+def family(request: Request, who=Depends(principal)) -> str:
+    """What one family sees about their own child, and nothing else.
+
+    A different surface, not a filtered dashboard. A parent does not want a
+    caseload; they want to know where their child's evaluation stands, what
+    the district owes them, and by when.
+    """
+    from .. import store
+    from ..auth import Role
+
+    if who.role is not Role.PARENT:
+        return HTMLResponse(
+            "<p>This page is the family view. "
+            "<a href='/demo/as/parent'>Preview it as a parent</a>.</p>")
+
+    ref = who.student_ref or _demo_family_ref()
+    if ref is None:
+        raise HTTPException(404, "no case on file")
+    who.require_record(ref)
+
+    case = store.get_case(ref)
+    if case is None:
+        raise HTTPException(404, "no case on file")
+
+    d = case.deadline
+    # Letters the family may actually see, computed BEFORE the tiles so the
+    # count and the list cannot contradict each other. The tile used to show
+    # len(case.escalations_sent), which counts rungs the fleet FIRED -- so a
+    # family with three drafts and no approvals was told three letters had been
+    # sent to them, directly above a panel saying nothing had.
+    delivered = store.delivered_to_family(ref)
+
+    # Days are recomputed against today rather than read from the stored value,
+    # which is only as fresh as the last tick. A parent reading "0 days" on the
+    # day before the deadline is being told something false.
+    days = (d.due_on - date.today()).days if d else None
+
+    if d is None:
+        status_line = ("We have your consent form but could not read the date on "
+                       "it clearly. Someone from the district will confirm it "
+                       "with you before the clock starts.")
+        big, sub = "Being checked", "a person is reviewing the form"
+    elif days < 0:
+        status_line = (f"By law this evaluation should have been finished by "
+                       f"{d.due_on.isoformat()}. It is {abs(days)} "
+                       f"days past that date. You do not have to wait quietly — "
+                       f"the district owes you an explanation, and you can ask "
+                       f"for it in writing.")
+        big, sub = f"{abs(days)} days", "past the legal deadline"
+    elif days == 0:
+        status_line = (f"By law the district must finish this evaluation "
+                       f"today, {d.due_on.isoformat()}.")
+        big, sub = "Today", "is the legal deadline"
+    else:
+        status_line = (f"By law the district must finish this evaluation by "
+                       f"{d.due_on.isoformat()}.")
+        big, sub = (f"{days} days" if days != 1 else "1 day",
+                    "until the legal deadline")
+
+    letters = ""
+    for o in delivered:
+        audio = (f"<audio controls preload=none src='/outbox/{e(o.id)}/audio'></audio>"
+                 if o.audio_path else "")
+        letters += (f"<article class=letter><h3>{e(o.subject)}</h3>"
+                    f"<p class=lettermeta>Sent {e(o.created_at[:10])} &middot; "
+                    f"released by {e(o.approved_by or 'the district')}</p>"
+                    f"<p class=letterbody>{e(o.body)}</p>{audio}</article>")
+    letters = letters or (
+        "<div class=locked>Nothing has been sent to you yet. When the district "
+        "writes to you, the letter will appear here — and you will be able to "
+        "listen to it as well as read it.</div>")
+
+    return f"""<!doctype html><html lang=en><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=robots content="noindex,nofollow">
+<title>Your child&rsquo;s evaluation — {PROJECT_NAME}</title>
+<style>{CSS}</style>
+<body><div class=wrap>
+{_switcher(who)}
+{_banner()}
+<header class=top>
+  <div class=brandwrap>
+    <div class=mark>H</div>
+    <div class=brand><h1>Your child&rsquo;s evaluation</h1>
+      <span>{e(case.school_code)}</span></div>
+  </div>
+  <div class=whoami>
+    <div class=idchip><b>{e(who.email)}</b><span>parent</span></div>
+    <div class=avatar>{e(who.email[:1].upper())}</div>
+  </div>
+</header>
+
+<div class="tiles fam">
+  <div class="tile {'hot' if days is not None and days < 0 else ''}">
+    <div class=n>{e(big)}</div><div class=l>{e(sub)}</div></div>
+  <div class=tile><div class=n>{len(delivered)}</div>
+    <div class=l>letters sent to you</div></div>
+</div>
+
+<h2>Where things stand</h2>
+<p class=sub>{e(status_line)}</p>
+{"<p class=sub>" + e(d.explanation) + "</p>" if d else ""}
+
+<h2>Letters from the district</h2>
+<p class=sub>Every letter here was written for you and released by a named
+person at the district. Nothing reaches you automatically.</p>
+{letters}
+
+<h2>What you can ask for</h2>
+<div class=rights>
+  <p>You have the right to see your child&rsquo;s complete education record,
+  including the evaluation itself and the notes behind it. This page is a status
+  summary, not the record — ask the district for the full file and they must
+  provide it.</p>
+  <p>You can ask for anything here in your own language, and you can bring
+  someone with you to any meeting.</p>
+  <p>If the deadline has passed, you can put a request in writing and ask what
+  the district intends to do about it.</p>
+</div>
+
+<footer>{PROJECT_NAME} &middot; this is a demonstration and every record is
+synthetic &middot; no real family is contacted</footer>
+</div></body></html>"""
+
+
+@app.get("/demo/as/{role}")
+def demo_as(role: str, request: Request, student: str = ""):
+    """Switch the previewed identity. Refused outright once auth is on.
+
+    This is a demo affordance, not an impersonation feature: it exists so one
+    person can show the same records from five sides without five sign-ins. The
+    guard is the same one that governs writes -- if the deployment can say who
+    you are, it will not let you claim to be someone else.
+    """
+    from ..auth import auth_required
+
+    if auth_required():
+        raise HTTPException(
+            403, "identity switching is a demo affordance and is refused when "
+                 "authentication is enabled; sign in as the role you need")
+    if role not in DEMO_IDENTITIES:
+        raise HTTPException(404, "no such demo identity")
+
+    target = "/family" if role == "parent" else "/app"
+    resp = RedirectResponse(target, status_code=303)
+    resp.set_cookie("demo_role", role, httponly=True, samesite="lax", path="/")
+    if role == "parent" and student:
+        resp.set_cookie("demo_student", student, httponly=True,
+                        samesite="lax", path="/")
+    return resp
+
+
+def _switcher(who) -> str:
+    """The identity bar. Rendered only while authentication is off."""
+    from ..auth import auth_required
+
+    if auth_required():
+        return ""
+    current = who.role.value
+    tabs = ""
+    for key, (_email, label) in DEMO_IDENTITIES.items():
+        if key == "parent":
+            continue
+        on = " on" if key == current else ""
+        tabs += f"<a class='swtab{on}' href='/demo/as/{e(key)}'>{e(label)}</a>"
+    on = " on" if current == "parent" else ""
+    tabs += (f"<a class='swtab{on}' href='/demo/as/parent'>Parent</a>")
+    return (f"<div class=switcher><span class=swlabel>Viewing as</span>{tabs}"
+            f"<span class=swnote>Same records, different identity. The gateway "
+            f"decides what each one is handed.</span></div>")
 
 
 @app.get("/", response_class=HTMLResponse)
