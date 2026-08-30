@@ -1357,6 +1357,21 @@ def _switcher(who) -> str:
             f"decides what each one is handed.</span></div>")
 
 
+@app.get("/pitch", response_class=HTMLResponse)
+def pitch() -> str:
+    """The case for the project, for anyone deciding whether to back it.
+
+    Static and public, like the landing page: it argues from evidence a reader
+    can go and check, so it must not require them to be anyone in particular.
+    """
+    page = _SITE / "pitch.html"
+    if not page.exists():
+        return _plain_page("Not bundled",
+                           "The pitch page is not in this image. The product is "
+                           "at /, and the demo at /walkthrough.")
+    return page.read_text(encoding="utf-8")
+
+
 @app.get("/", response_class=HTMLResponse)
 def landing() -> str:
     """The public front door. Static, no Firestore, no models, no identity.

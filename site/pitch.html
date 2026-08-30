@@ -1,0 +1,365 @@
+<title>Hopscotch Case</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+/* One visual world, matching the product it argues for: a judge who opens the
+   landing page and then this should see the same thing twice, not two projects. */
+:root{
+  --ink:#000; --surface:#0B0B0B; --sunk:#141414;
+  --paper:#FFF; --soft:#D2D2D0; --muted:#9C9C9A;
+  --rule:#1E1E1E; --rule-strong:#3A3A38;
+  --serif:"Newsreader",ui-serif,Georgia,serif;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --col:1080px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--ink);color:var(--paper);
+  font-family:var(--sans);font-weight:400;font-size:17px;line-height:1.68;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:var(--paper);text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--paper);outline-offset:3px}
+
+.sheet{border-bottom:1px solid var(--rule);position:relative}
+.sheet::before,.sheet::after{content:"";position:absolute;top:0;bottom:0;width:1px;
+  background:var(--rule);pointer-events:none}
+.sheet::before{left:max(20px,calc(50% - var(--col)/2))}
+.sheet::after{right:max(20px,calc(50% - var(--col)/2))}
+@media(max-width:760px){.sheet::before,.sheet::after{display:none}}
+.in{max-width:var(--col);margin:0 auto;padding:clamp(52px,7vw,92px) clamp(24px,5vw,64px)}
+
+.tag{font-family:var(--mono);font-size:.73rem;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--muted);display:block;margin-bottom:1.5rem}
+h1,h2{font-family:var(--serif);font-weight:300;margin:0;letter-spacing:-.02em;
+  text-wrap:balance}
+h1{font-size:clamp(2.6rem,6.6vw,4.6rem);line-height:1.04}
+h2{font-size:clamp(1.9rem,3.8vw,2.9rem);line-height:1.12;margin-bottom:1.3rem}
+h3{font-family:var(--serif);font-size:1.3rem;font-weight:400;margin:0 0 .5rem}
+p{margin:0 0 1.1rem;max-width:64ch}
+.lede{font-size:clamp(1.1rem,1.6vw,1.28rem);color:var(--soft);line-height:1.7}
+.dim{color:var(--soft)}
+strong{font-weight:600;color:var(--paper)}
+em{font-style:italic;color:var(--soft)}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:clamp(28px,5vw,72px);align-items:start}
+@media(max-width:840px){.two{grid-template-columns:1fr;gap:36px}}
+
+.stat{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+  gap:1px;background:var(--rule);border:1px solid var(--rule);margin:2.2rem 0}
+.cell{background:var(--ink);padding:20px 22px}
+.cell .v{font-family:var(--serif);font-size:clamp(1.9rem,3.4vw,2.6rem);font-weight:400;
+  line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;display:block}
+.cell .k{font-family:var(--mono);font-size:.7rem;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);margin-top:.65rem;line-height:1.5}
+
+.rowlist{border-top:1px solid var(--rule);margin-top:2rem}
+.item{display:grid;grid-template-columns:auto 1fr;gap:clamp(16px,3vw,38px);
+  padding:1.5rem 0;border-bottom:1px solid var(--rule);align-items:start}
+.item .no{font-family:var(--mono);font-size:.72rem;color:var(--muted);
+  letter-spacing:.1em;padding-top:.42rem;min-width:2.4ch}
+.item p{margin:0;color:var(--soft);font-size:.98rem}
+@media(max-width:620px){.item{grid-template-columns:1fr;gap:.4rem}.item .no{padding-top:0}}
+
+.quote{border-left:2px solid var(--paper);padding:.2rem 0 .2rem 22px;margin:1.8rem 0;
+  font-family:var(--serif);font-size:clamp(1.25rem,2.3vw,1.6rem);font-weight:300;
+  line-height:1.45;color:var(--paper);max-width:34ch}
+
+.mono{font-family:var(--mono);font-size:.93em}
+.term{font-family:var(--mono);font-size:.85rem;line-height:1.75;background:var(--surface);
+  border:1px solid var(--rule);border-left:2px solid var(--paper);padding:18px 20px;
+  white-space:pre-wrap;color:var(--paper);overflow-x:auto;margin:0 0 1.4rem}
+
+table{width:100%;border-collapse:collapse;font-size:.95rem;margin:1.4rem 0}
+th{text-align:left;font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);font-weight:500;padding:10px 14px 10px 0;
+  border-bottom:1px solid var(--rule-strong)}
+td{padding:11px 14px 11px 0;border-bottom:1px solid var(--rule);color:var(--soft);
+  vertical-align:top}
+td:first-child{color:var(--paper);white-space:nowrap}
+.scroll{overflow-x:auto}
+
+.cta{display:flex;gap:.7rem;flex-wrap:wrap;margin-top:2rem}
+.btn{font-size:.95rem;font-weight:600;padding:12px 26px;border-radius:999px;
+  border:1px solid var(--paper);background:var(--paper);color:var(--ink);
+  text-decoration:none;display:inline-block}
+.btn.line{background:transparent;color:var(--paper);border-color:#4C4C4C}
+footer .in{padding-top:34px;padding-bottom:34px;font-family:var(--mono);
+  font-size:.72rem;color:var(--muted);letter-spacing:.05em}
+</style>
+
+<section class="sheet">
+  <div class="in">
+    <span class="tag">All Things Agentic &middot; Fortified Enterprise Fleet</span>
+    <h1>New York City missed the deadline<br>for 29% of the children<br>it referred.</h1>
+    <p class="lede" style="margin-top:1.8rem">Massachusetts missed 28%, running an
+      average of <strong>111 days late</strong>. Federal law gives a district
+      sixty days to evaluate a child for special education, and the person
+      holding that clock is one coordinator with a spreadsheet, three hundred
+      files, and no compliance team.</p>
+    <p class="lede"><strong>Hopscotch is an agent fleet that keeps the clock —
+      and bills Medicaid for the services it protects, which is what pays for
+      it.</strong></p>
+    <p class="dim" style="font-size:.92rem">Both figures are state audit
+      findings, linked in the repository. They are two jurisdictions, not a
+      national rate &mdash; nobody publishes one.</p>
+    <div class="cta">
+      <a class="btn" href="https://agentx-dashboard-dijsyl2kwq-uc.a.run.app/walkthrough">See it work &rarr;</a>
+      <a class="btn line" href="https://agentx-dashboard-dijsyl2kwq-uc.a.run.app">The product</a>
+    </div>
+  </div>
+</section>
+
+<section class="sheet">
+  <div class="in">
+    <span class="tag">01 &nbsp;/&nbsp; The problem has teeth</span>
+    <h2>Missing the date is not an inconvenience. It is a cause of action.</h2>
+    <div class="two">
+      <div>
+        <p class="dim">Miss the sixty days and the district owes compensatory
+          services, faces a due process complaint, and lands on a state
+          corrective action plan. Roughly twenty states override the federal
+          count with their own — 45 school days, 30 business days — and school
+          days pause across every break on that district's calendar.</p>
+        <p class="dim">Washington moved to 35 school days in June 2026. Every
+          one of those is different arithmetic on the same form.</p>
+      </div>
+      <div>
+        <div class="quote">The clock runs from the day the district <em>receives</em>
+          consent, not the day the parent signed.</div>
+        <p class="dim" style="font-size:.95rem">That is 34 CFR §300.301(c)(1)(i).
+          We had it wrong for eight days, and found it by building the intake
+          path and watching a legible form get refused. Every case page now says
+          which date started the clock and why.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet">
+  <div class="in">
+    <span class="tag">02 &nbsp;/&nbsp; Why nobody has done it</span>
+    <h2>They need an autonomous agent more than almost anyone. They will never
+      be given one.</h2>
+    <p class="lede">The records are minors' clinical files. The buyer has no
+      security staff, no budget line for AI, and a legal obligation that makes a
+      wrong answer expensive. Every vendor that could serve them is selling to
+      someone easier.</p>
+    <p class="dim">So the hard part was never the agents. It was the guardrails
+      that make pointing them at real student records something a district
+      counsel will sign.</p>
+  </div>
+</section>
+
+<section class="sheet">
+  <div class="in">
+    <span class="tag">03 &nbsp;/&nbsp; The business argument</span>
+    <h2>Compliance is a cost centre. Cost centres get cut.</h2>
+    <div class="two">
+      <div>
+        <p class="dim">Districts can bill Medicaid for the very services these
+          deadlines govern, and most underclaim badly. A single New York City
+          audit found <strong>$431.6&nbsp;million</strong> unclaimed — and
+          $1.2&nbsp;billion since 2011.</p>
+        <p class="dim">The reimbursement requirements are, almost word for word,
+          what a compliance system already holds: the service is in the IEP, it
+          was delivered as written, it was documented. Same child, same records,
+          second question.</p>
+      </div>
+      <div>
+        <div class="quote">Compliance stops the lawsuits. Claiming is what pays
+          for us.</div>
+        <p class="dim" style="font-size:.95rem">That pairing is the product. It
+          turns the pitch from <em>"please find budget"</em> into <em>"we stop
+          the lawsuits and we find the money that funds us."</em> Cost
+          settlement compounds it: underclaiming one year lowers the ceiling for
+          the next.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet">
+  <div class="in">
+    <span class="tag">04 &nbsp;/&nbsp; The wedge nobody else is selling</span>
+    <h2>The risk is not only leaving money on the table. It is taking money you
+      cannot defend.</h2>
+    <p class="lede">Federal audits flagged <strong>$1.5&nbsp;billion</strong> in
+      improper or unsupported school-based Medicaid claims across Pennsylvania,
+      New York, New Jersey and Michigan.</p>
+    <p class="dim">Every competitor sells maximisation. We gate. Each delivered
+      session is checked against eligibility, NPI, licence validity on the
+      service date, provider type, the IEP window, and units against documented
+      minutes — then a model reads the note and asks whether it describes the
+      service the IEP authorised.</p>
+    <div class="term">One session passes every rule check.
+Eligible student. Licensed provider. Correct units. A properly written note.
+
+It is still a denial: the note describes a GROUP session,
+the IEP authorises INDIVIDUAL.
+
+No pattern matches a story.</div>
+    <p class="dim">Over-billing blocks. Under-billing is surfaced as revenue left
+      behind. Nothing is submitted — the export is what a billing vendor
+      ingests, and <strong>export is not submission</strong>. The district keeps
+      that decision and the liability with it.</p>
+  </div>
+</section>
+
+<section class="sheet">
+  <div class="in">
+    <span class="tag">05 &nbsp;/&nbsp; It is built and it is running</span>
+    <h2>Not a prototype. It has been working unattended for nine days.</h2>
+    <div class="stat">
+      <div class="cell"><span class="v">240</span><span class="k">Cloud Run job executions since 22 August, hourly, nobody watching</span></div>
+      <div class="cell"><span class="v">57</span><span class="k">open cases under a live statutory clock, 21 of them overdue</span></div>
+      <div class="cell"><span class="v">171</span><span class="k">tests, none of which need a cloud account to run</span></div>
+      <div class="cell"><span class="v">36/36</span><span class="k">real third-party skills passed clean by the capability gate</span></div>
+    </div>
+    <p class="dim">Every hour, unattended: recompute every open deadline under
+      that student's jurisdiction rule and district calendar, escalate at the
+      tightest applicable rung, draft the statutory notice, strip every clinical
+      finding, write the family letter, speak it aloud in their language, and
+      queue it for a named human. Then assess whether the sessions delivered
+      would survive an audit.</p>
+    <p class="dim">Built on <strong>Gemini 3.5 Flash and Google ADK 2.7.1</strong>.
+      Both agents are listed in Google's managed <strong>Agent Registry</strong>;
+      the supervisor and Memory Bank run on <strong>Vertex AI Agent
+      Engine</strong>; every inbound document passes <strong>Model Armor</strong>
+      before a model sees it.</p>
+  </div>
+</section>
+
+<section class="sheet">
+  <div class="in">
+    <span class="tag">06 &nbsp;/&nbsp; The moat</span>
+    <h2>Authorisation is not enough. The data is shaped to the identity.</h2>
+    <p class="lede">The family-facing agent does not receive clinical fields and
+      decline to use them. <strong>It never receives them.</strong></p>
+    <div class="scroll"><table>
+      <tr><th>agent</th><th>scopes</th><th>what the gateway hands it</th></tr>
+      <tr><td>casework-agent</td><td class="mono">case.read_full, draft.write</td><td>9 top-level, 8 consent fields</td></tr>
+      <tr><td>clock-agent</td><td class="mono">case.read_dates</td><td>8 top-level, 6 consent fields</td></tr>
+      <tr><td>family-agent</td><td class="mono">case.read_redacted</td><td><strong>4 top-level, 0 consent fields</strong></td></tr>
+    </table></div>
+    <p class="dim">A check can be forgotten at a new call site; a projection
+      cannot leak a field it never returned. Field classification <strong>fails
+      closed</strong>, so a field nobody has classified yet is withheld rather
+      than exposed — a default that caught a real gap the first table missed.</p>
+    <p class="dim">A parent may read their own child and no other. That returns
+      <span class="mono">404</span>, not 403, because 403 would confirm the other
+      child exists.</p>
+  </div>
+</section>
+
+<section class="sheet">
+  <div class="in">
+    <span class="tag">07 &nbsp;/&nbsp; Why this is a platform, not a feature</span>
+    <h2>The expensive part is paid once.</h2>
+    <div class="stat">
+      <div class="cell"><span class="v">768</span><span class="k">lines — compliance: the clock, escalation, notices</span></div>
+      <div class="cell"><span class="v">464</span><span class="k">lines — Medicaid claiming, built on the same records</span></div>
+      <div class="cell"><span class="v">725</span><span class="k">lines — governance, shared by both and by everything next</span></div>
+    </div>
+    <p class="dim">The gateway, the registry, the audit trail, the idempotency
+      ledger and the capability gate are not compliance code. They are the price
+      of admission to student records, and they amortise. 504 plans, Child Find,
+      records requests and translation are the same shape — deadline-driven,
+      document-heavy, compliance-exposed — and each reuses all of it.</p>
+    <p class="dim"><strong>Second workflow sold into an existing district
+      without new procurement.</strong> That is the expansion motion, and the
+      governance layer is what makes it cheap.</p>
+  </div>
+</section>
+
+<section class="sheet">
+  <div class="in">
+    <span class="tag">08 &nbsp;/&nbsp; What is not built</span>
+    <h2>Stated plainly, because several read as finished from the architecture
+      alone.</h2>
+    <div class="rowlist">
+      <div class="item"><span class="no">01</span><div>
+        <h3>No multi-tenancy</h3>
+        <p>Every collection is global. One district is fine; two is a breach.
+          This is the first thing built next, and it gates everything.</p></div></div>
+      <div class="item"><span class="no">02</span><div>
+        <h3>Medicaid billing consent is not modelled</h3>
+        <p>IDEA §300.154 requires a consent to bill that is separate from
+          consent to evaluate. The readiness gate does not check it yet, which
+          means it would pass a session a real audit would recoup.</p></div></div>
+      <div class="item"><span class="no">03</span><div>
+        <h3>Three of four state rules are invented</h3>
+        <p>Only the federal sixty-day baseline is accurate. The counting engine
+          handles calendar days, school days, business days and break pauses —
+          the rules themselves need legal review, per state.</p></div></div>
+      <div class="item"><span class="no">04</span><div>
+        <h3>No SOC 2, no signed DPA, no SIS integration</h3>
+        <p>78% of district technology officers require SOC 2 Type II, rising to
+          94% above ten thousand students. That is nine to fourteen months and
+          $30–80k, and no amount of engineering shortens it.</p></div></div>
+      <div class="item"><span class="no">05</span><div>
+        <h3>Agent Identity and Agent Gateway are substituted</h3>
+        <p>Agent identity is registry-declared, not attested — what the gateway
+          enforces is a scope table, not zero-trust. The managed APIs are not
+          offered on a personal Cloud account.</p></div></div>
+    </div>
+    <p class="dim" style="margin-top:1.6rem">Everything above is checkable.
+      <span class="mono">scripts/geap.sh</span> fetches the platform evidence at
+      run time and prints the two components we lack just as plainly as the four
+      we have.</p>
+  </div>
+</section>
+
+<section class="sheet">
+  <div class="in">
+    <span class="tag">09 &nbsp;/&nbsp; What happens next</span>
+    <h2>The engineering is eight to twelve weeks. The schedule is set by
+      paperwork.</h2>
+    <table>
+      <tr><th>now</th><td>Start the SOC 2 clock and the DPA template. Neither
+        touches code, and both are the long pole. Begin district
+        conversations.</td></tr>
+      <tr><th>weeks 1–4</th><td>Tenant isolation, enforced at the gateway — the
+        single funnel every agent already reads through. Then real district
+        calendars and verified rules for two launch states.</td></tr>
+      <tr><th>weeks 5–8</th><td>Medicaid billing consent as a blocking gate.
+        SIS ingestion: OneRoster for roster, Ed-Fi v6.1's new Special Education
+        model for IEP events. SSO against Workspace and Entra.</td></tr>
+      <tr><th>the proof</th><td>One district runs it against live records for a
+        full evaluation cycle. On-time evaluation rate before and after is the
+        only compliance number that matters; denials trending to zero is the
+        only claiming number.</td></tr>
+    </table>
+    <p class="dim">The metric that would kill it: a deadline missed
+      <em>because</em> the system was trusted. One is unacceptable — which is why
+      the fleet drafts and a named person decides, and why every computed value
+      shows its working.</p>
+  </div>
+</section>
+
+<section class="sheet">
+  <div class="in">
+    <span class="tag">10 &nbsp;/&nbsp; The ask</span>
+    <h2>Put it in front of one district compliance coordinator and watch which
+      half they reach for.</h2>
+    <p class="lede">Not more engineering. An introduction, and the runway to
+      clear the paperwork that stands between a working system and a child who
+      stops waiting.</p>
+    <p class="dim">Everything here runs today on Google Cloud, on synthetic
+      records, with no credentials required to check it. The honest limits are
+      listed above because a district's counsel will find them anyway, and it is
+      better they read them from us.</p>
+    <div class="cta">
+      <a class="btn" href="https://agentx-dashboard-dijsyl2kwq-uc.a.run.app/walkthrough">See it work &rarr;</a>
+      <a class="btn line" href="https://github.com/Aditya-galaxy/Hopscotch">Read the source</a>
+    </div>
+  </div>
+</section>
+
+<footer class="sheet" style="border-bottom:0">
+  <div class="in">Hopscotch &middot; Gemini 3.5 Flash on Google ADK &middot;
+    Agent Engine, Agent Registry, Memory Bank, Model Armor &middot;
+    every record synthetic, no real family contacted</div>
+</footer>
