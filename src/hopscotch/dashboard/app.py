@@ -459,20 +459,15 @@ def log_delivery(student_ref: str, request: Request, service: str = Form(...),
         status_code=303)
 
 
-@app.post("/run/tick")
-def run_tick_now(request: Request, who=Depends(principal), _w=Depends(writable)):
-    """Run a tick now instead of waiting for the hour.
+def _trigger_tick() -> tuple[bool, str]:
+    """Ask the Cloud Run job to run. Shared by the dashboard and the walkthrough.
 
-    Triggers the Cloud Run JOB rather than running in-process. This service runs
-    as an identity with no Vertex or Model Armor access on purpose; executing
-    the fleet here would force those permissions back onto it and undo the
-    split. The job has them; this only asks it to start.
+    Deliberately does NOT run a tick in-process. This service runs as an
+    identity with no Vertex or Model Armor access, and executing the fleet here
+    would force those permissions back onto it and undo the split. The job has
+    them; this only asks it to start.
     """
-    import os
-
     from ..config import settings
-
-    _needs(who, "case.write")
 
     project = settings.project_id
     region = os.environ.get("MODEL_ARMOR_LOCATION", "us-central1")
@@ -487,11 +482,29 @@ def run_tick_now(request: Request, who=Depends(principal), _w=Depends(writable))
                f"{region}/jobs/{job}:run")
         resp = AuthorizedSession(creds).post(url, timeout=30)
         if resp.status_code >= 300:
-            return RedirectResponse(
-                f"/app?msg=Could+not+start+the+tick+({resp.status_code}).",
-                status_code=303)
+            return False, str(resp.status_code)
     except Exception as exc:
-        return RedirectResponse(f"/app?msg=Could+not+start+the+tick:+{type(exc).__name__}",
+        return False, type(exc).__name__
+    return True, ""
+
+
+@app.post("/run/tick")
+def run_tick_now(request: Request, who=Depends(principal), _w=Depends(writable)):
+    """Run a tick now instead of waiting for the hour.
+
+    Triggers the Cloud Run JOB rather than running in-process. This service runs
+    as an identity with no Vertex or Model Armor access on purpose; executing
+    the fleet here would force those permissions back onto it and undo the
+    split. The job has them; this only asks it to start.
+    """
+    import os
+
+    from ..config import settings
+
+    _needs(who, "case.write")
+    ok, detail = _trigger_tick()
+    if not ok:
+        return RedirectResponse(f"/app?msg=Could+not+start+the+tick:+{detail}",
                                 status_code=303)
     return RedirectResponse(
         "/app?msg=Tick+started.+Reload+in+a+moment+to+see+what+it+did.",
@@ -1417,7 +1430,7 @@ def index(msg: str = "", who=Depends(principal)) -> str:
 {_banner()}
 {_flash(msg)}
 <p class=sub>{date.today().isoformat()} · every row below was written by an
-unattended agent, not a person.</p>
+unattended agent, not a person. &nbsp;<a href="/walkthrough">Watch one case from start to finish &rarr;</a></p>
 {brief_html}
 <h2>At a glance</h2>
 <div class=tiles>
@@ -1439,3 +1452,20 @@ unattended agent, not a person.</p>
 every family.</p><video controls muted preload=none src="/explainer"></video></div></div>
 <footer>{PROJECT_NAME} · agents on Cloud Run and Agent Engine · all data synthetic</footer>
 </div></body></html>"""
+
+
+# Registered at the end on purpose: walkthrough.py reads CSS and FONTS from this
+# module, so it can only be imported once those exist.
+from .walkthrough import (TourUnavailable,  # noqa: E402
+                          router as _walkthrough_router)
+
+app.include_router(_walkthrough_router)
+
+
+@app.exception_handler(TourUnavailable)
+def _tour_unavailable(request: Request, exc: TourUnavailable):
+    """The walkthrough writes, so the public deployment explains rather than refuses."""
+    from .walkthrough import unavailable_page
+
+    return HTMLResponse(unavailable_page(), status_code=200)
+
