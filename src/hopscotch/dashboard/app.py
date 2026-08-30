@@ -45,198 +45,234 @@ log = logging.getLogger("hopscotch.dashboard")
 
 _SITE = Path(__file__).resolve().parents[3] / "site"
 
+FONTS = (
+    '<link rel="preconnect" href="https://fonts.googleapis.com">'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?'
+    'family=Newsreader:opsz,wght@6..72,200;6..72,300;6..72,400&'
+    'family=IBM+Plex+Mono:wght@400;500;600&'
+    'family=IBM+Plex+Sans:wght@300;400;500;600&display=swap">'
+)
+
 CSS = """
+/* The application wears the same identity as the landing page -- one black and
+   white world, Newsreader for display, Plex for everything operational -- but
+   it is NOT the same treatment. A landing page is read top to bottom and can
+   afford air; a caseload is scanned and operated, so the type scale is small,
+   the rows are dense, and the space is spent on separation rather than drama.
+   Committed to a single dark world like the front page, with every colour
+   painted explicitly so the page never borrows the host's ground. */
 :root{
-  --paper:#FAFAF8; --surface:#FFFFFF; --sunk:#F3F3EF; --ink:#141815;
-  --soft:#454B46; --muted:#767C74; --rule:#E3E4DE; --rule-soft:#EDEEE9;
-  --accent:#1D5C3C; --accent-ink:#1D5C3C; --accent-soft:#E6F0EA;
-  --risk:#9C3520; --risk-soft:#FAE9E4; --warn:#7E5F17; --warn-soft:#F8F0DC;
-  --shadow:0 1px 2px rgba(20,24,21,.05), 0 1px 8px rgba(20,24,21,.04);
-  --shadow-lift:0 2px 4px rgba(20,24,21,.06), 0 8px 24px rgba(20,24,21,.06);
+  --ink:#000000;
+  --surface:#0B0B0B;
+  --sunk:#141414;
+  --raised:#181818;
+  --paper:#FFFFFF;
+  --soft:#B4B4B2;
+  --muted:#828280;
+  --rule:#1E1E1E;
+  --rule-strong:#333331;
+  --serif:"Newsreader",ui-serif,Georgia,"Times New Roman",serif;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
 }
-@media(prefers-color-scheme:dark){:root{
-  --paper:#0E110F; --surface:#171B18; --sunk:#1E231F; --ink:#ECEEE9;
-  --soft:#B9BEB6; --muted:#868C84; --rule:#2A302B; --rule-soft:#232823;
-  --accent:#7CC79B; --accent-ink:#7CC79B; --accent-soft:#16271D;
-  --risk:#EE9377; --risk-soft:#2E1B15; --warn:#E0BC69; --warn-soft:#2B2416;
-  --shadow:none; --shadow-lift:none;
-}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--paper);color:var(--ink);
-  font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
-a{color:var(--accent-ink);text-underline-offset:2px}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--ink);color:var(--paper);
+  font-family:var(--sans);font-weight:300;font-size:15px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+/* The ruled column: the landing page's rails, carried across. */
+.wrap{max-width:1220px;margin:0 auto;padding:0 clamp(18px,3vw,40px) 88px;
+  border-left:1px solid var(--rule);border-right:1px solid var(--rule);
+  min-height:100vh}
+@media(max-width:760px){.wrap{border-left:0;border-right:0}}
+a{color:var(--paper);text-underline-offset:2px}
 a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--paper);outline-offset:2px}
 
-/* ---- masthead ---------------------------------------------------------- */
-header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:center;
-  padding:22px 0 18px;margin-bottom:24px;border-bottom:1px solid var(--rule)}
+/* ---- masthead ----------------------------------------------------------- */
+header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:center;
+  padding:20px 0 16px;margin-bottom:22px;border-bottom:1px solid var(--rule)}
 .brandwrap{display:flex;align-items:center;gap:11px;min-width:0}
-.mark{width:30px;height:30px;border-radius:8px;background:var(--accent);
-  display:grid;place-items:center;flex:none;
-  color:#fff;font-weight:700;font-size:.95rem;letter-spacing:-.02em}
-@media(prefers-color-scheme:dark){.mark{color:#0E110F}}
-.brand h1{font-size:1.05rem;margin:0;font-weight:680;letter-spacing:-.015em;line-height:1.15}
-.brand{font-size:1.02rem;font-weight:680;letter-spacing:-.015em;line-height:1.1}
-.brand span{display:block;font-size:.73rem;font-weight:450;color:var(--muted);
-  letter-spacing:0;margin-top:2px}
-h1{font-size:1.32rem;margin:0;letter-spacing:-.02em;font-weight:640}
-.whoami{margin-left:auto;text-align:right;display:flex;align-items:center;gap:10px}
-.idchip{display:flex;flex-direction:column;align-items:flex-end;line-height:1.35}
-.idchip b{font-size:.83rem;font-weight:600}
-.idchip span{font-size:.73rem;color:var(--muted)}
-.avatar{width:32px;height:32px;border-radius:50%;flex:none;
-  background:var(--accent-soft);color:var(--accent-ink);
-  display:grid;place-items:center;font-size:.8rem;font-weight:700;
-  border:1px solid var(--rule)}
+.mark{width:28px;height:28px;border-radius:7px;background:var(--paper);
+  color:var(--ink);display:grid;place-items:center;flex:none;
+  font-family:var(--serif);font-weight:400;font-size:.95rem}
+.brand h1{font-family:var(--serif);font-size:1.18rem;margin:0;font-weight:300;
+  letter-spacing:-.01em;line-height:1.15}
+.brand span{display:block;font-family:var(--mono);font-size:.68rem;
+  color:var(--muted);letter-spacing:.05em;margin-top:3px}
+h1{font-family:var(--serif);font-weight:300;margin:0}
+.whoami{margin-left:auto;display:flex;align-items:center;gap:10px}
+.idchip{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3}
+.idchip b{font-size:.8rem;font-weight:500}
+.idchip span{font-family:var(--mono);font-size:.67rem;color:var(--muted);
+  letter-spacing:.04em}
+.avatar{width:30px;height:30px;border-radius:50%;flex:none;
+  background:transparent;color:var(--paper);border:1px solid var(--rule-strong);
+  display:grid;place-items:center;font-family:var(--mono);font-size:.75rem}
 
-/* ---- sections ---------------------------------------------------------- */
-h2{font-size:.95rem;margin:38px 0 12px;letter-spacing:-.01em;font-weight:650;
-  color:var(--ink);display:flex;align-items:baseline;gap:9px}
-h2::after{content:"";flex:1;height:1px;background:var(--rule-soft)}
-h3{font-size:.92rem;margin:26px 0 10px;font-weight:620;letter-spacing:-.01em}
-.sub{color:var(--muted);font-size:.875rem;margin:0 0 18px;max-width:74ch}
+/* ---- section headings: the landing page's eyebrow, as a rule ------------- */
+h2{font-family:var(--mono);font-size:.68rem;font-weight:600;
+  text-transform:uppercase;letter-spacing:.14em;color:var(--muted);
+  margin:34px 0 12px;display:flex;align-items:center;gap:12px}
+h2::after{content:"";flex:1;height:1px;background:var(--rule)}
+h3{font-family:var(--serif);font-size:1.05rem;font-weight:300;margin:22px 0 8px;
+  letter-spacing:-.005em}
+.sub{color:var(--muted);font-size:.85rem;margin:0 0 14px;max-width:78ch}
 
-/* ---- tiles ------------------------------------------------------------- */
-.tiles{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
-.tile{background:var(--surface);border:1px solid var(--rule);border-radius:10px;
-  padding:15px 17px;box-shadow:var(--shadow);position:relative;overflow:hidden}
-.tile::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:transparent}
-.tile .n{font-size:2rem;font-weight:660;font-variant-numeric:tabular-nums;
-  line-height:1.05;letter-spacing:-.03em}
-.tile .l{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;
-  color:var(--muted);margin-top:5px;font-weight:600}
-.tile.hot::before{background:var(--risk)}.tile.hot .n{color:var(--risk)}
-.tile.warn::before{background:var(--warn)}.tile.warn .n{color:var(--warn)}
+/* ---- tiles: severity by weight and rail, never by hue ------------------- */
+.tiles{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.tile{background:var(--ink);padding:16px 18px;position:relative}
+.tile .n{font-family:var(--serif);font-size:2.05rem;font-weight:300;
+  line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+  color:var(--soft)}
+.tile .l{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;
+  letter-spacing:.11em;color:var(--muted);margin-top:6px}
+/* Overdue is the one thing that must read instantly. With no colour to spend,
+   it takes full white, extra weight and a solid rail; a warning takes white
+   with a hairline rail; everything else stays dimmed. */
+.tile.hot{background:var(--surface)}
+.tile.hot::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--paper)}
+.tile.hot .n{color:var(--paper);font-weight:400}
+.tile.warn::before{content:"";position:absolute;left:0;top:0;bottom:0;width:1px;
+  background:var(--rule-strong)}
+.tile.warn .n{color:var(--paper)}
 
-/* ---- tables ------------------------------------------------------------ */
-.scroll{overflow-x:auto;border:1px solid var(--rule);border-radius:10px;
-  background:var(--surface);box-shadow:var(--shadow)}
-table{width:100%;min-width:660px;border-collapse:collapse;font-size:.875rem}
-th{text-align:left;font-size:.69rem;text-transform:uppercase;letter-spacing:.07em;
-  color:var(--muted);padding:11px 14px;border-bottom:1px solid var(--rule);
-  background:var(--sunk);white-space:nowrap;font-weight:650}
-td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:middle}
+/* ---- tables: dense, ruled, monospaced where it is data ------------------ */
+.scroll{overflow-x:auto;border:1px solid var(--rule);background:var(--surface)}
+table{width:100%;min-width:680px;border-collapse:collapse;font-size:.845rem}
+th{text-align:left;font-family:var(--mono);font-size:.63rem;text-transform:uppercase;
+  letter-spacing:.11em;color:var(--muted);padding:10px 13px;font-weight:500;
+  border-bottom:1px solid var(--rule);background:var(--sunk);white-space:nowrap}
+td{padding:9px 13px;border-bottom:1px solid var(--rule);vertical-align:middle;
+  color:var(--soft)}
 tr:last-child td{border-bottom:0}
 tbody tr:hover{background:var(--sunk)}
-.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-  font-variant-numeric:tabular-nums;font-size:.93em}
+tbody tr:hover td{color:var(--paper)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.93em;
+  color:var(--paper)}
 
-/* ---- pills ------------------------------------------------------------- */
-.pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:.72rem;
-  font-weight:650;white-space:nowrap;border:1px solid transparent}
-.pill.ok{background:var(--accent-soft);color:var(--accent-ink)}
-.pill.warn{background:var(--warn-soft);color:var(--warn)}
-.pill.hot{background:var(--risk-soft);color:var(--risk)}
+/* ---- pills: fill = urgent, outline = watch, plain = fine ---------------- */
+.pill{display:inline-block;padding:2px 9px;border-radius:3px;font-family:var(--mono);
+  font-size:.67rem;font-weight:500;white-space:nowrap;letter-spacing:.04em;
+  border:1px solid transparent;text-transform:uppercase}
+.pill.hot{background:var(--paper);color:var(--ink);font-weight:600}
+.pill.warn{border-color:var(--rule-strong);color:var(--paper)}
+.pill.ok{color:var(--muted)}
 
-/* ---- the daily brief, the hero ----------------------------------------- */
-.brief{background:var(--surface);border:1px solid var(--rule);border-radius:12px;
-  padding:20px 22px;box-shadow:var(--shadow-lift);
-  border-top:3px solid var(--accent);margin-bottom:6px}
-.brief .hl{font-size:1.12rem;font-weight:640;line-height:1.42;letter-spacing:-.015em;
-  margin-bottom:14px;max-width:70ch}
-.brief .grp{margin-top:14px}
-.brief .grp h4{margin:0 0 5px;font-size:.68rem;text-transform:uppercase;
-  letter-spacing:.08em;color:var(--muted);font-weight:650}
-.brief ul{margin:0;padding-left:18px}
-.brief li{font-size:.875rem;color:var(--soft);margin-bottom:3px}
+/* ---- the daily brief ---------------------------------------------------- */
+.brief{background:var(--surface);border:1px solid var(--rule);
+  border-left:2px solid var(--paper);padding:18px 20px}
+.brief .hl{font-family:var(--serif);font-size:1.3rem;font-weight:300;
+  line-height:1.35;letter-spacing:-.01em;margin-bottom:14px;max-width:68ch}
+.brief .grp{margin-top:13px}
+.brief .grp h4{margin:0 0 5px;font-family:var(--mono);font-size:.63rem;
+  text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:500}
+.brief ul{margin:0;padding-left:16px}
+.brief li{font-size:.845rem;color:var(--soft);margin-bottom:3px}
 .brief li.more{color:var(--muted);font-style:italic}
-.brief .by{margin-top:16px;padding-top:12px;border-top:1px solid var(--rule-soft);
-  font-size:.73rem;color:var(--muted)}
+.brief .by{margin-top:15px;padding-top:11px;border-top:1px solid var(--rule);
+  font-family:var(--mono);font-size:.66rem;color:var(--muted);letter-spacing:.04em}
 
-/* ---- notices ----------------------------------------------------------- */
-.banner{border-radius:9px;padding:11px 15px;font-size:.845rem;margin-bottom:18px;
-  background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn);
-  line-height:1.5}
-.banner b{color:inherit}
-.flash{background:var(--accent-soft);border:1px solid var(--accent);
-  color:var(--accent-ink);border-radius:9px;padding:11px 15px;font-size:.875rem;
-  margin:0 0 18px;font-weight:520}
-.locked{background:var(--surface);border:1px dashed var(--rule);border-radius:10px;
-  padding:16px 18px;color:var(--muted);font-size:.87rem}
-.locked code{background:var(--sunk);padding:1px 6px;border-radius:4px;font-size:.9em}
+/* ---- notices ------------------------------------------------------------ */
+.banner{border:1px solid var(--rule-strong);border-left:2px solid var(--paper);
+  padding:11px 14px;font-size:.82rem;margin-bottom:16px;line-height:1.5;
+  background:var(--surface);color:var(--soft)}
+.banner b{color:var(--paper)}
+.flash{border:1px solid var(--rule-strong);background:var(--surface);
+  color:var(--paper);padding:11px 14px;font-size:.85rem;margin:0 0 16px}
+.locked{background:var(--surface);border:1px dashed var(--rule-strong);
+  padding:15px 17px;color:var(--muted);font-size:.84rem}
+.locked code{font-family:var(--mono);background:var(--sunk);padding:1px 5px;
+  color:var(--soft)}
+.empty{color:var(--muted);font-size:.84rem;padding:20px;text-align:center}
 
-/* ---- forms and buttons ------------------------------------------------- */
-.drop{display:flex;flex-direction:column;gap:10px;max-width:820px;margin-bottom:12px}
-.stack{display:flex;flex-direction:column;gap:8px;max-width:580px;margin-bottom:10px}
+/* ---- forms and buttons -------------------------------------------------- */
+.drop{display:flex;flex-direction:column;gap:9px;max-width:840px;margin-bottom:10px}
+.stack{display:flex;flex-direction:column;gap:9px;max-width:600px;margin-bottom:10px}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.drop textarea,.stack input,.stack textarea{font:inherit;font-size:.875rem;
-  padding:11px 13px;border:1px solid var(--rule);border-radius:8px;
-  background:var(--surface);color:var(--ink);width:100%;box-shadow:var(--shadow)}
-.drop textarea:focus,.stack input:focus,.stack textarea:focus{outline:2px solid var(--accent);
-  outline-offset:-1px;border-color:var(--accent)}
-.drop textarea{min-height:132px;resize:vertical;line-height:1.55;
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem}
-.btn{font:inherit;font-size:.83rem;font-weight:600;padding:8px 15px;border-radius:8px;
-  cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#fff;
-  box-shadow:var(--shadow);transition:filter .12s ease}
-@media(prefers-color-scheme:dark){.btn{color:#0E110F}}
-.btn:hover{filter:brightness(1.08)}
-.btn.ghost{background:var(--surface);color:var(--soft);border-color:var(--rule)}
-.btn.ghost:hover{background:var(--sunk);filter:none}
-.btn:disabled{opacity:.45;cursor:not-allowed}
+.drop textarea,.stack input,.stack textarea,.fix input{
+  font:inherit;font-size:.85rem;padding:9px 11px;border:1px solid var(--rule-strong);
+  background:var(--ink);color:var(--paper);width:100%;border-radius:2px}
+.drop textarea{min-height:126px;resize:vertical;font-family:var(--mono);
+  font-size:.78rem;line-height:1.6}
+.drop textarea::placeholder{color:var(--muted)}
+.drop textarea:focus,.stack input:focus,.stack textarea:focus{
+  outline:1px solid var(--paper);outline-offset:-1px;border-color:var(--paper)}
+.field{display:flex;flex-direction:column;gap:5px;flex:1;min-width:150px}
+.field>span{font-family:var(--mono);font-size:.63rem;text-transform:uppercase;
+  letter-spacing:.11em;color:var(--muted);font-weight:500}
+.btn{font-family:var(--sans);font-size:.79rem;font-weight:500;padding:7px 14px;
+  border-radius:999px;cursor:pointer;border:1px solid var(--paper);
+  background:var(--paper);color:var(--ink);transition:opacity .14s ease}
+.btn:hover{opacity:.84}
+.btn.ghost{background:transparent;color:var(--paper);border-color:var(--rule-strong)}
+.btn.ghost:hover{background:var(--raised);opacity:1;border-color:var(--muted)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
 form.inline{display:inline}
-/* ---- demo identity switcher -------------------------------------------- */
-.switcher{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  padding:10px 0 0;margin-bottom:4px}
-.swlabel{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--muted);font-weight:650;margin-right:2px}
-.swtab{font-size:.8rem;padding:5px 11px;border-radius:999px;
-  border:1px solid var(--rule);color:var(--soft);background:var(--surface);
-  text-decoration:none;white-space:nowrap}
-.swtab:hover{background:var(--sunk)}
-.swtab.on{background:var(--accent);border-color:var(--accent);color:#fff;
-  font-weight:600}
-@media(prefers-color-scheme:dark){.swtab.on{color:#0E110F}}
-.swnote{font-size:.76rem;color:var(--muted);flex-basis:100%;margin-top:2px}
-
-/* ---- the family surface ------------------------------------------------- */
-.tiles.fam{grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
-  margin-bottom:6px}
-.tiles.fam .tile .n{font-size:1.85rem}
-.letter{background:var(--surface);border:1px solid var(--rule);border-radius:10px;
-  padding:18px 20px;margin-bottom:12px;box-shadow:var(--shadow)}
-.letter h3{margin:0 0 3px;font-size:1rem}
-.lettermeta{margin:0 0 12px;font-size:.75rem;color:var(--muted)}
-.letterbody{margin:0 0 12px;white-space:pre-wrap;font-size:.92rem;
-  line-height:1.65;color:var(--soft);max-width:66ch}
-.rights{background:var(--surface);border:1px solid var(--rule);
-  border-left:3px solid var(--accent);border-radius:10px;padding:16px 20px}
-.rights p{margin:0 0 10px;font-size:.9rem;color:var(--soft);max-width:70ch}
-.rights p:last-child{margin-bottom:0}
-.field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:150px}
-.field>span{font-size:.71rem;text-transform:uppercase;letter-spacing:.06em;
-  color:var(--muted);font-weight:650}
-.fixwrap summary{cursor:pointer;font-size:.74rem;color:var(--muted);list-style:none;
-  user-select:none;padding:3px 9px;border:1px solid var(--rule);border-radius:6px;
-  display:inline-block;white-space:nowrap}
+.fix{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.fix input{font-size:.75rem;padding:4px 7px;max-width:126px;width:auto}
+.fixwrap summary{cursor:pointer;font-family:var(--mono);font-size:.66rem;
+  color:var(--muted);list-style:none;user-select:none;padding:3px 9px;
+  border:1px solid var(--rule-strong);display:inline-block;white-space:nowrap;
+  text-transform:uppercase;letter-spacing:.08em}
 .fixwrap summary::-webkit-details-marker{display:none}
-.fixwrap summary:hover{background:var(--sunk);color:var(--soft)}
-.fixwrap[open] summary{margin-bottom:7px;color:var(--soft);background:var(--sunk)}
-.tickrow{margin-top:-2px}
+.fixwrap summary:hover{background:var(--raised);color:var(--paper)}
+.fixwrap[open] summary{color:var(--paper);background:var(--raised)}
 .hint{font-size:.78rem;color:var(--muted)}
 .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.fix{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
-.fix input{font:inherit;font-size:.78rem;padding:5px 8px;border:1px solid var(--rule);
-  border-radius:6px;background:var(--paper);color:var(--ink);max-width:120px}
-.back{font-size:.85rem;display:inline-block;margin:20px 0 4px;font-weight:520}
+.tickrow{margin-top:-2px}
+.back{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted);display:inline-block;
+  margin:16px 0 2px;text-decoration:none}
+.back:hover{color:var(--paper)}
 
-/* ---- media and misc ---------------------------------------------------- */
-.media{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
-.card{background:var(--surface);border:1px solid var(--rule);border-radius:10px;
-  padding:16px;box-shadow:var(--shadow)}
-.card h3{margin:0 0 4px;font-size:.9rem}
-.card p{margin:0 0 11px;color:var(--soft);font-size:.83rem}
-video,audio{width:100%;border-radius:7px}
-.empty{color:var(--muted);font-size:.87rem;padding:22px;text-align:center}
-footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--rule);
-  color:var(--muted);font-size:.79rem}
+/* ---- identity switcher -------------------------------------------------- */
+.switcher{display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  padding:14px 0 0}
+.swlabel{font-family:var(--mono);font-size:.63rem;text-transform:uppercase;
+  letter-spacing:.13em;color:var(--muted);margin-right:4px}
+.swtab{font-size:.77rem;padding:5px 12px;border:1px solid var(--rule);
+  color:var(--muted);background:transparent;text-decoration:none;
+  white-space:nowrap;border-radius:999px}
+.swtab:hover{border-color:var(--rule-strong);color:var(--paper)}
+.swtab.on{background:var(--paper);border-color:var(--paper);color:var(--ink);
+  font-weight:500}
+.swnote{font-size:.74rem;color:var(--muted);flex-basis:100%;margin-top:6px}
+
+/* ---- the family surface: the one place that keeps some air -------------- */
+.tiles.fam{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.tiles.fam .tile{padding:20px 22px}
+.tiles.fam .tile .n{font-size:2.3rem;color:var(--paper)}
+.letter{background:var(--surface);border:1px solid var(--rule);
+  border-left:2px solid var(--rule-strong);padding:18px 20px;margin-bottom:10px}
+.letter h3{margin:0 0 4px;font-size:1rem}
+.lettermeta{margin:0 0 12px;font-family:var(--mono);font-size:.66rem;
+  color:var(--muted);letter-spacing:.04em}
+.letterbody{margin:0 0 12px;white-space:pre-wrap;font-size:.9rem;line-height:1.7;
+  color:var(--soft);max-width:68ch}
+.rights{background:var(--surface);border:1px solid var(--rule);
+  border-left:2px solid var(--paper);padding:16px 20px}
+.rights p{margin:0 0 10px;font-size:.87rem;color:var(--soft);max-width:72ch}
+.rights p:last-child{margin-bottom:0}
+
+/* ---- media -------------------------------------------------------------- */
+.media{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.card{background:var(--ink);padding:16px 18px}
+.card h3{margin:0 0 4px;font-size:.95rem}
+.card p{margin:0 0 11px;color:var(--muted);font-size:.8rem}
+video,audio{width:100%;border-radius:2px;filter:grayscale(1)}
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--rule);
+  font-family:var(--mono);color:var(--muted);font-size:.68rem;letter-spacing:.05em}
 @media(max-width:640px){
-  .wrap{padding:0 16px 64px}
-  h1{font-size:1.15rem}
-  .tile .n{font-size:1.7rem}
+  .wrap{padding-bottom:56px}
   .whoami{margin-left:0;width:100%;justify-content:flex-start}
+  .tile .n{font-size:1.75rem}
 }
 """
 
@@ -973,7 +1009,7 @@ def case_detail(student_ref: str, msg: str = "", who=Depends(principal)) -> str:
     return f"""<!doctype html><html lang=en><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <meta name=robots content="noindex,nofollow">
-<title>{e(student_ref)} — {PROJECT_NAME}</title><style>{CSS}</style>
+<title>{e(student_ref)} — {PROJECT_NAME}</title>{FONTS}<style>{CSS}</style>
 <body><div class=wrap>
 {_switcher(who)}
 <a class=back href="/app">&larr; caseload</a>
@@ -995,7 +1031,8 @@ def case_detail(student_ref: str, msg: str = "", who=Depends(principal)) -> str:
   <div class=tile><div class=n>{e(d.due_on.isoformat()) if d else '—'}</div>
     <div class=l>due</div></div>
   <div class="tile {'hot' if d and d.days_remaining < 0 else ''}">
-    <div class=n>{d.days_remaining if d else '—'}</div><div class=l>days left</div></div>
+    <div class=n>{abs(d.days_remaining) if d else '—'}</div>
+    <div class=l>{'days overdue' if d and d.days_remaining < 0 else 'days left'}</div></div>
   <div class=tile><div class=n>{len(case.escalations_sent)}</div>
     <div class=l>notices sent</div></div>
   <div class="tile {'warn' if case.corrections else ''}">
@@ -1017,6 +1054,26 @@ gateway never returns them, so they cannot leak from a page that never had them.
 <div class=scroll><table><tr><th>field</th><th>value</th></tr>{projected}</table></div>
 <footer>{PROJECT_NAME} · agents on Cloud Run and Agent Engine · all data synthetic</footer>
 </div></body></html>"""
+
+
+def _family_explanation(case, d) -> str:
+    """How the date was worked out, in words a parent would use.
+
+    The fleet's own explanation is written for the person who has to defend the
+    arithmetic -- "60 calendar days from 2026-06-28. 0 day(s) not counted under
+    this rule." A family does not need the rule name or the excluded-day count,
+    and putting it in front of them reads as a system talking to itself.
+    """
+    if d is None:
+        return ""
+    started = d.clock_started_on.isoformat() if d.clock_started_on else "the date we received it"
+    line = (f"We counted from {started}, the day the district received your "
+            f"signed consent form &mdash; that is the date the law uses, not "
+            f"the date you signed.")
+    if d.excluded_days:
+        line += (f" {d.excluded_days} days were not counted because school was "
+                 f"closed.")
+    return f"<p class=sub>{line}</p>"
 
 
 def _demo_family_ref() -> str | None:
@@ -1114,7 +1171,7 @@ def family(request: Request, who=Depends(principal)) -> str:
     return f"""<!doctype html><html lang=en><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <meta name=robots content="noindex,nofollow">
-<title>Your child&rsquo;s evaluation — {PROJECT_NAME}</title>
+<title>Your child&rsquo;s evaluation — {PROJECT_NAME}</title>{FONTS}
 <style>{CSS}</style>
 <body><div class=wrap>
 {_switcher(who)}
@@ -1140,7 +1197,7 @@ def family(request: Request, who=Depends(principal)) -> str:
 
 <h2>Where things stand</h2>
 <p class=sub>{e(status_line)}</p>
-{"<p class=sub>" + e(d.explanation) + "</p>" if d else ""}
+{_family_explanation(case, d)}
 
 <h2>Letters from the district</h2>
 <p class=sub>Every letter here was written for you and released by a named
@@ -1265,7 +1322,7 @@ def index(msg: str = "", who=Depends(principal)) -> str:
     return f"""<!doctype html><html lang=en><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <meta name=robots content="noindex,nofollow">
-<title>{PROJECT_NAME} — special education compliance</title><style>{CSS}</style>
+<title>{PROJECT_NAME} — special education compliance</title>{FONTS}<style>{CSS}</style>
 <body><div class=wrap>
 {_switcher(who)}
 <header class=top>
