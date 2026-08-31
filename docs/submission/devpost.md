@@ -10,7 +10,7 @@ pays for it. *The compliance half is built and deployed. Of the claiming half, c
 not.*
 
 **Category:** Fortified Enterprise Fleet
-**Project start date:** 22 August 2026 (matches first commit)
+**Project start date:** 21 August 2026 — `git log --reverse` shows the first commit at 17:12 that day. (The unattended fleet's first Cloud Run execution was the 22nd; those are two different facts and this document used to conflate them.)
 **Google SDK used:** Google ADK 2.7.1
 **Repository:** https://github.com/Aditya-galaxy/Hopscotch
 **Hosted project:** https://agentx-dashboard-dijsyl2kwq-uc.a.run.app
