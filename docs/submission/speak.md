@@ -1,6 +1,6 @@
 # The script, to read aloud
 
-**553 words — about 3m 25s spoken.** That leaves roughly thirty-five
+**543 words — about 3m 24s spoken.** That leaves roughly thirty-five
 seconds of the four minutes for the screen to breathe: clicks, page loads, the
 clock filling, and a beat of silence after the lines that need one.
 
