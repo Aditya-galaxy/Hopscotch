@@ -1,6 +1,6 @@
 # The script, to read aloud
 
-**508 words — about 3m 10s spoken**, down from 609. That leaves roughly fifty
+**553 words — about 3m 25s spoken.** That leaves roughly thirty-five
 seconds of the four minutes for the screen to breathe: clicks, page loads, the
 clock filling, and a beat of silence after the lines that need one.
 
@@ -65,11 +65,16 @@ the emphasis lands. The cue says what should be on screen.
 
 ---
 
-### 6 · Steps 6 and 7  ·  ~20s
+### 6 · Steps 6 and 7, then the Spanish notice  ·  ~30s
+*Open the outbox row marked `es-US` and play the audio.*
 
 > Here's the letter. Nothing in it names a diagnosis, because the agent that
 > wrote it was never given one. And it's waiting — the fleet drafts, a person
 > decides.
+>
+> And here's the same notice for a family that reads Spanish. Not translated
+> afterwards — **written** in Spanish, and spoken aloud. A statutory notice a
+> parent can't read is a notice that was never delivered.
 >
 > This is the parent's page. One child, theirs. Open another family's case and
 > you get a **404**, not a 403 — a 403 would confirm that child exists.
