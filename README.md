@@ -124,7 +124,7 @@ Nothing below needs cloud credentials.
 
 ```bash
 make install          # venv + dependencies
-make test             # 161 tests, ~100s
+make test             # 173 tests, ~60s, no credentials needed
 make corpora          # fetch the benign skill corpus
 make scan SKILL=data/replicas/credential-helper ARGS=--structural-only
 ```
@@ -157,6 +157,16 @@ Every claim below is verifiable by a stranger. **Steps 1–4 need no cloud
 credentials, no API key, and no billing account** — they run offline in about
 two minutes.
 
+### 0. Or check it without installing anything
+
+The deployed demo is public and read-only:
+[**the walkthrough**](https://agentx-dashboard-dijsyl2kwq-uc.a.run.app/walkthrough)
+follows one consent form through ten screens, and
+[**the dashboard**](https://agentx-dashboard-dijsyl2kwq-uc.a.run.app/app) has an
+identity switcher — click along it and watch the same records change shape for a
+coordinator, a psychologist, a liaison, a business officer and a parent. Writes
+are refused there, deliberately, because the deployment cannot say who you are.
+
 ### 1. Install and run the test suite
 
 ```bash
@@ -165,10 +175,18 @@ make install
 make test
 ```
 
-Expected: **44 passed** in roughly one second. The suite covers the statutory
-deadline engine, the idempotency ledger, supervisor resilience, and the
-capability gate. It needs only `pydantic` and `pyyaml`, because a domain core
-that cannot be tested without cloud SDKs cannot be tested in CI either.
+Expected: **173 passed**, in about a minute. The suite covers the statutory
+deadline engine, the idempotency ledger, supervisor resilience, the capability
+gate, the identity and record-scope boundaries, and every route the dashboard
+serves.
+
+It runs with **no `GOOGLE_CLOUD_PROJECT`, no application-default credentials and
+no API key** — verified by unsetting all of them. A domain core that cannot be
+tested without cloud SDKs cannot be tested in CI either.
+
+*(One edge: if `GOOGLE_CLOUD_PROJECT` is exported as an empty string rather than
+left unset, two dashboard tests fail on `projects/None`. Unset it or give it a
+value.)*
 
 ### 2. See why static analysis is not enough
 
@@ -205,6 +223,18 @@ Expected: **`QUARANTINE`**, with the reason naming which reviewers could not
 run. Without credentials the model-backed reviewers are unavailable, and the
 gate downgrades rather than approving. "We could not check" and "we checked and
 it was fine" are different answers.
+
+### 5. Check the Google Cloud claims (needs `gcloud` auth)
+
+```bash
+./scripts/geap.sh
+```
+
+Fetches, at run time: both agents as listed in Google's managed **Agent
+Registry**, both **Agent Engine** instances, the most recent **Model Armor**
+block, the **Cloud Trace** span count, the Cloud Run job execution count and the
+Cloud Scheduler state — and prints the two GEAP components this project does
+**not** have just as plainly. Nothing in it is a stored string.
 
 ---
 
