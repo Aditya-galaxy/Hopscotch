@@ -328,3 +328,63 @@ def test_the_panel_says_so_when_there_is_no_clock():
     steps = dict(_process_steps(case))
     assert "No clock" in steps
     assert "person" in steps["No clock"]
+
+
+def test_walkthrough_steps_never_link_to_themselves():
+    """A forward button must go forward.
+
+    Step 5's released branch pointed its "See what the family gets" button at
+    /walkthrough/5, so a case whose notice had already gone out trapped the
+    demo on one screen. The two genuine self-links -- the "Check again" holds
+    on /2 and /3 while a tick is still running -- are allowed by label.
+    """
+    import re
+    from pathlib import Path
+
+    src = Path("src/hopscotch/dashboard/walkthrough.py").read_text()
+    current, offenders = None, []
+    for line in src.splitlines():
+        route = re.search(r'@router\.get\("/(\d+)"', line)
+        if route:
+            current = route.group(1)
+            continue
+        for hit in re.finditer(r'action="/walkthrough/(\d+)"', line):
+            if hit.group(1) == current:
+                offenders.append((current, line.strip()))
+
+    # /2 and /3 hold on themselves deliberately while a tick is still running.
+    unexpected = [o for o in offenders if o[0] not in {"2", "3"}]
+    assert not unexpected, f"forward button loops to itself: {unexpected}"
+
+
+def test_notice_for_prefers_a_notice_awaiting_approval():
+    """The approval gate is the point of the demo; a stale send must not hide it.
+
+    A case can hold an old pending draft and a newer sent notice at once. Sorted
+    together on created_at the sent one won, so the step announced "already
+    released" and offered nothing to approve.
+    """
+    from hopscotch import store
+    from hopscotch.dashboard import walkthrough
+
+    class Fake:
+        def __init__(self, id, status, created, sent=None):
+            self.id, self.student_ref, self.created_at = id, "stu-x", created
+            self.status, self.sent_at, self.approved_at = status, sent, sent
+
+    pending = Fake("old-draft", "pending_approval", "2026-08-25T00:00:00Z")
+    sent = Fake("newer-sent", "sent", "2026-08-28T00:00:00Z", "2026-08-28T00:00:00Z")
+
+    orig_pending = store.pending_outbound
+    orig_delivered = store.delivered_to_family
+    try:
+        store.pending_outbound = lambda n: [pending]
+        store.delivered_to_family = lambda ref: [sent]
+        assert walkthrough._notice_for("stu-x").id == "old-draft"
+
+        # With nothing pending, the most recently released one wins.
+        store.pending_outbound = lambda n: []
+        assert walkthrough._notice_for("stu-x").id == "newer-sent"
+    finally:
+        store.pending_outbound = orig_pending
+        store.delivered_to_family = orig_delivered

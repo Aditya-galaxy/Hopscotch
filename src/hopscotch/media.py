@@ -38,8 +38,13 @@ class MediaUnavailable(RuntimeError):
     """Generation failed. Callers fall back to text; they never fake a file."""
 
 
+# A statutory notice is read slightly slowly, because a parent may be hearing
+# the terms for the first time. Narration is not a statutory notice.
+NOTICE_RATE = 0.92
+
+
 def speak(text: str, *, language: str = "es-US", out: Path | None = None,
-          voice: str | None = None) -> Path:
+          voice: str | None = None, rate: float = NOTICE_RATE) -> Path:
     """Render a notice as speech with a Chirp3-HD voice.
 
     Cached by content hash: the same notice in the same language is never
@@ -51,7 +56,8 @@ def speak(text: str, *, language: str = "es-US", out: Path | None = None,
     # An explicit voice overrides the per-language default. Family notices
     # always use the default; the demo narration picks its own.
     voice_name = voice or VOICES.get(language, VOICES["en-US"])
-    digest = hashlib.sha256(f"{language}|{voice_name}|{text}".encode()).hexdigest()[:16]
+    digest = hashlib.sha256(
+        f"{language}|{voice_name}|{rate}|{text}".encode()).hexdigest()[:16]
     path = out or MEDIA_DIR / f"notice-{language}-{digest}.mp3"
 
     with span("media.speak", language=language, voice=voice_name) as s:
@@ -69,9 +75,7 @@ def speak(text: str, *, language: str = "es-US", out: Path | None = None,
             voice=tts.VoiceSelectionParams(language_code=language, name=voice_name),
             audio_config=tts.AudioConfig(
                 audio_encoding=tts.AudioEncoding.MP3,
-                # Slightly slow: this is a legal notice being read to someone
-                # who may be hearing the terms for the first time.
-                speaking_rate=0.92,
+                speaking_rate=rate,
             ),
         )
         path.parent.mkdir(parents=True, exist_ok=True)

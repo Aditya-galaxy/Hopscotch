@@ -188,11 +188,25 @@ def _notice_for(ref: str):
     """
     from .. import store
 
-    seen = [o for o in store.pending_outbound(60) if o.student_ref == ref]
-    seen += [o for o in store.delivered_to_family(ref)]
-    if not seen:
+    # A notice awaiting a decision wins over one already out the door, and it
+    # wins regardless of age. Sorting the two pools together on created_at put
+    # a case's older pending draft behind a notice sent days later, so the
+    # approval step announced "already released" and offered nothing to press.
+    # A case can legitimately hold both: the fleet drafts a new one each time a
+    # rung fires, and earlier ones have already gone.
+    pending = [o for o in store.pending_outbound(60) if o.student_ref == ref]
+    if pending:
+        return sorted(pending, key=lambda o: o.created_at, reverse=True)[0]
+
+    # Nothing waiting, so show the one most recently *released* -- by when it
+    # was released, not when it was drafted. Approving an old draft has to move
+    # it to the front here, or the family page shows a different letter than
+    # the one just approved.
+    delivered = list(store.delivered_to_family(ref))
+    if not delivered:
         return None
-    return sorted(seen, key=lambda o: o.created_at, reverse=True)[0]
+    return sorted(delivered, key=lambda o: (o.sent_at or o.approved_at
+                                            or o.created_at), reverse=True)[0]
 
 
 def _act(nxt: int | str, do: str, label: str, guided_label: str = "") -> dict:
@@ -683,7 +697,7 @@ one.</p>
     if approved:
         return _page(5, body + "<div class=out>already released by "
                      f"{e(n.approved_by or 'a coordinator')}</div>",
-                     action="/walkthrough/5", label="See what the family gets",
+                     action="/walkthrough/6", label="See what the family gets",
                      method="get")
     return _page(5, body, **_act(6, "/walkthrough/5/do",
                                  "Approve and release it",

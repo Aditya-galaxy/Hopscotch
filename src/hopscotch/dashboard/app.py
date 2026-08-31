@@ -584,8 +584,41 @@ def correct_case(student_ref: str, request: Request, field: str = Form(...),
 
 # --- media, authorized ------------------------------------------------------
 
+def _ranged(data: bytes, request: Request, media_type: str) -> Response:
+    """Serve bytes honouring a Range request.
+
+    Safari refuses to play <audio> from an endpoint that answers its opening
+    `Range: bytes=0-1` probe with a 200 and the whole body -- it wants a 206.
+    Chrome tolerates it, which is why this went unnoticed until the demo was
+    run in Safari. FileResponse already does this; the GCS branch returns
+    bytes and so has to do it itself.
+    """
+    total = len(data)
+    headers = {"accept-ranges": "bytes"}
+    rng = request.headers.get("range", "")
+    if not rng.startswith("bytes="):
+        return Response(content=data, media_type=media_type, headers=headers)
+
+    first, _, last = rng[6:].split(",")[0].strip().partition("-")
+    try:
+        # "bytes=-500" is the final 500 bytes, not a negative offset.
+        start = int(first) if first else max(0, total - int(last))
+        end = int(last) if (last and first) else total - 1
+    except ValueError:
+        return Response(content=data, media_type=media_type, headers=headers)
+
+    end = min(end, total - 1)
+    if start > end or start >= total:
+        headers["content-range"] = f"bytes */{total}"
+        return Response(status_code=416, headers=headers)
+
+    headers["content-range"] = f"bytes {start}-{end}/{total}"
+    return Response(content=data[start:end + 1], status_code=206,
+                    media_type=media_type, headers=headers)
+
+
 @app.get("/outbox/{item_id}/audio")
-def outbox_audio(item_id: str, who=Depends(principal)):
+def outbox_audio(item_id: str, request: Request, who=Depends(principal)):
     """Audio is reached through the outbox item it belongs to, never by filename.
 
     The previous route served any file in the media directory to anyone who knew
@@ -621,7 +654,7 @@ def outbox_audio(item_id: str, who=Depends(principal)):
         if not is_servable(ref):
             raise HTTPException(404, "not found")
         try:
-            return Response(content=media_bytes(ref), media_type="audio/mpeg")
+            return _ranged(media_bytes(ref), request, "audio/mpeg")
         except Exception:
             raise HTTPException(404, "not found") from None
 

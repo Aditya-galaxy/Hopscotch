@@ -4,25 +4,32 @@
   html,body{width:1200px;height:630px;overflow:hidden}
   body{
     background:#000;color:#fff;
-    display:flex;align-items:center;
-    padding:0 88px;
-    position:relative;
+    display:flex;align-items:center;justify-content:center;
   }
-  /* The ruled column, kept from the product. One quiet thing so the card is
-     recognisably from the same place, and nothing else competing with the type. */
-  .rail{position:absolute;top:0;bottom:0;width:1px;background:#1E1E1E}
-  .rail.l{left:44px} .rail.r{right:44px}
+  /* Everything lives inside a centred safe area. Devpost centre-crops the card
+     to something squarer than 1200x630, so type pushed to one edge is type that
+     gets clipped. Shrink-wrapping to the longest line -- with the break set by
+     hand so it has a stable width to wrap to -- centres the type itself rather
+     than a box the type only half fills. */
+  .safe{width:max-content}
 
   h1{
     font-family:"Newsreader",ui-serif,Georgia,serif;
     font-weight:300;
-    font-size:5.6rem;
+    font-size:5.25rem;
     line-height:1.02;
     letter-spacing:-.028em;
-    max-width:16ch;
+  }
+  /* One quiet mark so the card is recognisably from the same place. The rails
+     that used to do this job sat 44px from the edge and read as crop marks. */
+  .mark{
+    margin-top:38px;
+    font:400 .95rem/1 ui-sans-serif,-apple-system,"Helvetica Neue",sans-serif;
+    letter-spacing:.22em;text-transform:uppercase;color:#8A8A8A;
   }
 </style>
 
-<div class="rail l"></div><div class="rail r"></div>
-
-<h1>Sixty days from a parent&rsquo;s&nbsp;signature.</h1>
+<div class="safe">
+  <h1>Sixty days from a<br>parent&rsquo;s&nbsp;signature.</h1>
+  <div class="mark">Hopscotch</div>
+</div>
