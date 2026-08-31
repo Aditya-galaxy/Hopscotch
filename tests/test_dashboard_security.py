@@ -289,3 +289,42 @@ def test_the_most_privileged_reader_is_not_locked_out(monkeypatch):
         assert _read_scope(Principal(email="x@d.org", role=role)) is not None, role
     # the business office holds no read scope over cases, only over claims
     assert _read_scope(Principal(email="b@d.org", role=Role.BUSINESS)) is None
+
+
+# --- the process panel reports, it does not recompute -------------------------
+
+def test_the_process_panel_agrees_with_the_computation():
+    """Every line reads a stored field. If the panel could disagree with the
+    deadline it explains, it would be fiction rather than an audit trail."""
+    from datetime import date
+    from hopscotch.dashboard.app import _process_steps
+    from hopscotch.deadlines import recompute
+    from hopscotch.schemas import Case, CaseStage, ConsentEvent
+
+    case = Case(student_ref="stu_p", school_code="EL-1", jurisdiction="US_FEDERAL",
+                stage=CaseStage.CONSENT_RECEIVED,
+                consent=ConsentEvent(student_ref="stu_p", school_code="EL-1",
+                                     jurisdiction="US_FEDERAL",
+                                     consent_signed_on=date(2026, 6, 1),
+                                     received_on=date(2026, 6, 10),
+                                     confidence=0.9, source_document="x"))
+    case.deadline = recompute(case, today=date(2026, 7, 1))
+    steps = dict(_process_steps(case))
+
+    # the clock start it prints is the one that was actually used
+    assert str(case.deadline.clock_started_on) in steps["Clock starts"]
+    # and it names WHY -- receipt, not signature
+    assert "RECEIVED" in steps["Clock starts"]
+    assert "signed on 2026-06-01" in steps["Clock starts"]
+    assert case.deadline.due_on.isoformat() == steps["Deadline computed"]
+
+
+def test_the_panel_says_so_when_there_is_no_clock():
+    from hopscotch.dashboard.app import _process_steps
+    from hopscotch.schemas import Case, CaseStage
+
+    case = Case(student_ref="stu_q", school_code="EL-1",
+                jurisdiction="US_FEDERAL", stage=CaseStage.CONSENT_RECEIVED)
+    steps = dict(_process_steps(case))
+    assert "No clock" in steps
+    assert "person" in steps["No clock"]

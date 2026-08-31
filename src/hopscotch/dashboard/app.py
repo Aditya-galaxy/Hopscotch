@@ -226,7 +226,26 @@ form.inline{display:inline}
 .fixwrap summary:hover{background:var(--raised);color:var(--paper)}
 .fixwrap[open] summary{color:var(--paper);background:var(--raised)}
 .hint{font-size:.78rem;color:var(--muted)}
-.nowrap{white-space:nowrap}\n.nomedia{font-family:var(--mono);font-size:.66rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
+.nowrap{white-space:nowrap}\n.process{background:var(--surface);border:1px solid var(--rule);
+  border-left:2px solid var(--paper);margin:0 0 18px}
+.process summary{cursor:pointer;list-style:none;padding:12px 16px;
+  font-family:var(--mono);font-size:.7rem;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--muted)}
+.process summary::-webkit-details-marker{display:none}
+.process summary:hover{color:var(--paper)}
+.process[open] summary{border-bottom:1px solid var(--rule);color:var(--paper)}
+.pbody{padding:6px 16px 14px}
+.pstep{display:grid;grid-template-columns:24px minmax(0,15ch) 1fr;gap:12px;
+  padding:9px 0;border-bottom:1px solid var(--rule);align-items:baseline}
+.pstep:last-of-type{border-bottom:0}
+.pn{font-family:var(--mono);font-size:.68rem;color:var(--muted)}
+.pk{font-family:var(--mono);font-size:.72rem;color:var(--muted);
+  letter-spacing:.04em;text-transform:uppercase}
+.pv{font-size:.9rem;color:var(--soft);line-height:1.55}
+.pdet{margin-top:12px;padding-top:11px;border-top:1px solid var(--rule-strong);
+  font-family:var(--mono);font-size:.78rem;color:var(--paper);letter-spacing:.04em}
+@media(max-width:640px){.pstep{grid-template-columns:1fr;gap:2px}}
+.nomedia{font-family:var(--mono);font-size:.66rem;color:var(--muted);letter-spacing:.04em;white-space:nowrap}
 .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .tickrow{margin-top:-2px}
 .back{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;
@@ -653,6 +672,81 @@ def _pill(days: int | None) -> str:
 def _locked(what: str, scope: str) -> str:
     return (f'<div class=locked>{e(what)} is not visible to your role. '
             f'It requires <code>{e(scope)}</code>.</div>')
+
+
+def _process_steps(case) -> list[tuple[str, str]]:
+    """How this deadline was reached, step by step.
+
+    Reports what the computation already recorded; it does not recompute
+    anything. If this and the case page ever disagreed, the panel would be
+    fiction -- so every line here reads a field off the stored
+    DeadlineComputation rather than deriving it a second time.
+
+    A single explanation sentence is fine in an audit log and poor on a screen:
+    the reader cannot see which input drove which part of the answer. Splitting
+    it means a coordinator can point at the line they disagree with.
+    """
+    from ..jurisdictions import JURISDICTIONS
+
+    d = case.deadline
+    if d is None:
+        return [("No clock", "The consent date could not be read, so no deadline "
+                             "was computed. A person has to confirm it.")]
+
+    j = JURISDICTIONS.get(case.jurisdiction)
+    steps = [("Rule selected",
+              f"{case.jurisdiction} — {j.label if j else d.rule_label}")]
+
+    c = case.consent
+    if c is not None and c.received_on and d.clock_started_on == c.received_on:
+        why = ("the date the district RECEIVED consent, which is the trigger in "
+               "34 CFR §300.301(c)(1)(i)")
+        if c.consent_signed_on is None:
+            why += "; the signature date was not legible"
+        elif c.consent_signed_on != c.received_on:
+            why += f"; the parent signed on {c.consent_signed_on}"
+    elif c is not None and c.consent_signed_on == d.clock_started_on:
+        why = ("the signature date, used as a fallback because no receipt date "
+               "was legible — earlier than receipt, so the deadline is tighter "
+               "than the statute requires rather than looser")
+    else:
+        why = "supplied by a human correction"
+    steps.append(("Clock starts", f"{d.clock_started_on} — {why}"))
+
+    steps.append(("Calendar applied",
+                  f"{d.excluded_days} day(s) not counted under this rule"
+                  if d.excluded_days else
+                  "no days excluded — this rule counts calendar days"))
+
+    for corr in case.corrections:
+        steps.append((f"Correction · {corr.field}",
+                      f"set to {corr.value} by {corr.by} — {corr.reason}"
+                      + (f". The fleet had computed {corr.computed_was}."
+                         if corr.computed_was else "")))
+
+    steps.append(("Deadline computed", d.due_on.isoformat()))
+    left = (d.due_on - date.today()).days
+    n = abs(left)
+    steps.append(("Against today",
+                  "due today" if left == 0 else
+                  f"{n} {'day' if n == 1 else 'days'} "
+                  f"{'overdue' if left < 0 else 'remaining'}"))
+    return steps
+
+
+def _process_panel(case) -> str:
+    """The stepwise trace, rendered."""
+    rows = "".join(
+        f"<div class=pstep><span class=pn>{i + 1}</span>"
+        f"<span class=pk>{e(k)}</span><span class=pv>{e(v)}</span></div>"
+        for i, (k, v) in enumerate(_process_steps(case)))
+    d = case.deadline
+    verdict = ("no deadline" if d is None else
+               f"due {d.due_on.isoformat()}")
+    return (f"<details class=process><summary>Process &mdash; how this was "
+            f"decided</summary><div class=pbody>{rows}"
+            f"<div class=pdet>Determination &rarr; <b>{e(verdict)}</b></div>"
+            f"</div></details>")
 
 
 def _read_scope(who) -> str | None:
@@ -1130,12 +1224,14 @@ def case_detail(student_ref: str, msg: str = "", who=Depends(principal)) -> str:
     <div class=l>due</div></div>
   <div class="tile {'hot' if d and d.days_remaining < 0 else ''}">
     <div class=n>{abs(d.days_remaining) if d else '—'}</div>
-    <div class=l>{'days overdue' if d and d.days_remaining < 0 else 'days left'}</div></div>
+    <div class=l>{('day' if d and abs(d.days_remaining) == 1 else 'days')
+      + (' overdue' if d and d.days_remaining < 0 else ' left')}</div></div>
   <div class=tile><div class=n>{len(case.escalations_sent)}</div>
     <div class=l>notices sent</div></div>
   <div class="tile {'warn' if case.corrections else ''}">
     <div class=n>{len(case.corrections)}</div><div class=l>corrections</div></div>
 </div>
+{_process_panel(case)}
 <h2>How this deadline was reached</h2>
 <p class=sub>{e(d.explanation) if d else
   'No clock. The consent date could not be read, so this case needs a human.'}</p>

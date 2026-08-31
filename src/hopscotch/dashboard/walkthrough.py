@@ -208,6 +208,18 @@ def _act(nxt: int | str, do: str, label: str, guided_label: str = "") -> dict:
     return {"action": do, "label": label, "method": "post"}
 
 
+def _process(case) -> str:
+    """The case page's Process panel, reused here.
+
+    Imported rather than reimplemented: two renderings of the same reasoning
+    would eventually disagree, and the one on the demo screen is the one a judge
+    reads.
+    """
+    from .app import _process_panel
+
+    return _process_panel(case)
+
+
 def _page(step: int, body: str, *, action: str = "", label: str = "",
           note: str = "", method: str = "post") -> str:
     """One screen. Number, who is acting, what happened, one button."""
@@ -502,7 +514,7 @@ started.</p>
 not the day the parent signed it. That is the trigger in 34 CFR
 §300.301(c)(1)(i), and a form signed on the first and delivered on the tenth is
 due sixty days from the tenth.</p>
-<div class=out>{e(d.explanation)}</div>"""
+{_process(case)}"""
     resp_body = body
     return _page(2, resp_body, **_act(3, "/walkthrough/2/do",
                                      "Run the fleet again",
