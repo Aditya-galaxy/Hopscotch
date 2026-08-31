@@ -1481,8 +1481,21 @@ app.include_router(_walkthrough_router)
 
 @app.exception_handler(TourUnavailable)
 def _tour_unavailable(request: Request, exc: TourUnavailable):
-    """The walkthrough writes, so the public deployment explains rather than refuses."""
+    """Explain to a reader; refuse to a writer.
+
+    A visitor who follows "Open the demo" from the landing page has done nothing
+    wrong and should get the page explaining what the walkthrough does -- 200,
+    because the request succeeded in returning what they asked for.
+
+    A POST is different. It asked to file a document or start a job, and that was
+    REFUSED. Returning 200 there told anyone probing the endpoints that the write
+    had succeeded, and made these four the only writes in the application not
+    answering 403 like the other six. The guard held either way -- nothing was
+    filed and no job ran -- but a refused write must say so.
+    """
     from .walkthrough import unavailable_page
 
+    if request.method != "GET":
+        return HTMLResponse(unavailable_page(), status_code=403)
     return HTMLResponse(unavailable_page(), status_code=200)
 

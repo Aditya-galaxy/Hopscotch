@@ -257,3 +257,20 @@ def test_no_audio_player_is_offered_without_bytes_behind_it():
     Item.audio_path = None
     assert "<audio" not in _audio_cell(Item())
     assert "text only" in _audio_cell(Item())
+
+
+def test_a_refused_walkthrough_write_answers_403_not_200(monkeypatch):
+    """The four tour writes are writes, and a refused write must say so.
+
+    They returned 200 with an explanation page, which is right for a reader
+    following a link and wrong for a POST: anyone probing the endpoints saw 200
+    and would conclude the document had been filed. Nothing was ever written --
+    the guard ran first -- but the status contradicted the behaviour.
+    """
+    monkeypatch.setenv("REQUIRE_AUTH", "false")
+    c = TestClient(app)
+    for path in ("/walkthrough/0/do", "/walkthrough/1/do",
+                 "/walkthrough/5/do", "/walkthrough/9/do"):
+        assert c.post(path).status_code == 403, path
+    # the reader's page is not an error
+    assert c.get("/walkthrough").status_code == 200
