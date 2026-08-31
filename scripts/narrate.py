@@ -21,6 +21,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 OUT = Path("docs/submission/narration")
 VOICE_LANG = "en-US"
 
+# Chirp3-HD voice for the narration. Deliberately NOT the family-notice default:
+# a letter read to a parent and a demo read to a judge want different registers.
+# Override with:  narrate.py --voice Fenrir
+VOICE = "en-US-Chirp3-HD-Puck"
+
 # Timed against the shot list in docs/submission/video-script.md. The tick is
 # triggered at 0:55 and revisited at 2:25, so the middle sections have to cover
 # roughly ninety seconds between them.
@@ -104,6 +109,11 @@ def clean(text: str) -> str:
 
 
 def main() -> int:
+    global VOICE
+    if "--voice" in sys.argv:
+        VOICE = f"en-US-Chirp3-HD-{sys.argv[sys.argv.index('--voice') + 1]}"
+    print(f"  voice: {VOICE}")
+
     total_words = sum(len(clean(t).split()) for _, t in SECTIONS)
     # 158 words per minute, measured with afinfo across the ten rendered
     # sections -- not an estimate. 608 words came out at 3m51s against a 4m cap.
@@ -125,7 +135,7 @@ def main() -> int:
     for name, text in SECTIONS:
         path = OUT / f"{name}.mp3"
         # speak() caches by content hash, so re-running is free and idempotent.
-        got = speak(clean(text), language=VOICE_LANG, out=path)
+        got = speak(clean(text), language=VOICE_LANG, out=path, voice=VOICE)
         made.append(Path(got))
         print(f"    {name:20} {Path(got).stat().st_size // 1024:>4} KB")
 

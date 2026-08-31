@@ -38,7 +38,8 @@ class MediaUnavailable(RuntimeError):
     """Generation failed. Callers fall back to text; they never fake a file."""
 
 
-def speak(text: str, *, language: str = "es-US", out: Path | None = None) -> Path:
+def speak(text: str, *, language: str = "es-US", out: Path | None = None,
+          voice: str | None = None) -> Path:
     """Render a notice as speech with a Chirp3-HD voice.
 
     Cached by content hash: the same notice in the same language is never
@@ -47,7 +48,9 @@ def speak(text: str, *, language: str = "es-US", out: Path | None = None) -> Pat
     from google.api_core.client_options import ClientOptions
     from google.cloud import texttospeech as tts
 
-    voice_name = VOICES.get(language, VOICES["en-US"])
+    # An explicit voice overrides the per-language default. Family notices
+    # always use the default; the demo narration picks its own.
+    voice_name = voice or VOICES.get(language, VOICES["en-US"])
     digest = hashlib.sha256(f"{language}|{voice_name}|{text}".encode()).hexdigest()[:16]
     path = out or MEDIA_DIR / f"notice-{language}-{digest}.mp3"
 
