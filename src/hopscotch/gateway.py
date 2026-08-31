@@ -44,6 +44,11 @@ _RANK = {Sensitivity.DIRECTORY: 0, Sensitivity.ADMINISTRATIVE: 1,
 FIELD_SENSITIVITY: dict[str, Sensitivity] = {
     "student_ref": Sensitivity.DIRECTORY,
     "school_code": Sensitivity.DIRECTORY,
+    # DIRECTORY on purpose: the family-facing agent holds the narrowest scope in
+    # the fleet and it is the one agent that MUST know which language to write
+    # in. Classified any higher, the redacted projection would withhold it and
+    # the letter would silently go out in English.
+    "home_language": Sensitivity.DIRECTORY,
     "jurisdiction": Sensitivity.DIRECTORY,
     "stage": Sensitivity.DIRECTORY,
     "deadline": Sensitivity.ADMINISTRATIVE,

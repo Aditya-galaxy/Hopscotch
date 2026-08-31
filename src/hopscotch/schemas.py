@@ -98,6 +98,14 @@ class Case(BaseModel):
     stage: CaseStage = CaseStage.REFERRED
     consent: ConsentEvent | None = None
     deadline: DeadlineComputation | None = None
+    home_language: str = Field(
+        default="",
+        description="BCP-47 tag for the language this family reads, e.g. es-US. "
+                    "The family-facing agent was already told to take the "
+                    "language from the family's record -- this is that field. "
+                    "Without it the instruction had nothing to read and every "
+                    "notice went out in English, in a district that serves "
+                    "families who do not read it.")
     escalations_sent: list[int] = Field(default_factory=list)
     corrections: list[Correction] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

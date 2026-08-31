@@ -67,9 +67,9 @@ def _family_prompt(view: dict, redacted_body: str) -> str:
         "The clinical content has already been removed upstream. If you still "
         "see a diagnosis, test name, or score, stop and say so rather than "
         "paraphrasing it.\n\n"
-        "Choose `language` from the family's record if present, otherwise "
-        "'en-US'. Set redaction_applied to true. Use the student_ref exactly "
-        "as given.\n\n"
+        "Set `language` to the record's home_language when it is present and "
+        "non-empty, otherwise 'en-US', and WRITE THE LETTER IN THAT LANGUAGE. "
+        "Set redaction_applied to true. Use the student_ref exactly as given.\n\n"
         f"Case record (redacted):\n{view}\n\nNotice:\n{redacted_body}\n"
     )
 
