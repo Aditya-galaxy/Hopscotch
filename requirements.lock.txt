@@ -40,7 +40,6 @@ google-cloud-bigquery==3.44.0
 google-cloud-core==2.7.0
 google-cloud-firestore==2.29.0
 google-cloud-modelarmor==0.7.1
-google-cloud-pubsub==2.39.2
 google-cloud-resource-manager==1.18.0
 google-cloud-storage==3.13.1
 google-cloud-texttospeech==2.37.0

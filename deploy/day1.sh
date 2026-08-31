@@ -39,7 +39,7 @@ fi
 say "2/9  APIs"
 gcloud services enable \
   aiplatform.googleapis.com run.googleapis.com cloudbuild.googleapis.com \
-  artifactregistry.googleapis.com firestore.googleapis.com pubsub.googleapis.com \
+  artifactregistry.googleapis.com firestore.googleapis.com \
   cloudscheduler.googleapis.com cloudtrace.googleapis.com \
   modelarmor.googleapis.com billingbudgets.googleapis.com \
   --project="$PROJECT_ID"

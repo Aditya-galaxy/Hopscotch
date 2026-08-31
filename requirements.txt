@@ -19,7 +19,6 @@ google-cloud-firestore
 # Firestore read; 2.34.0 reads fine, 2.35.0 fails, 2.34.0 reads fine again.
 # firestore 2.29.0 is unaffected once this is correct.
 google-api-core<2.35
-google-cloud-pubsub
 opentelemetry-sdk
 opentelemetry-exporter-gcp-trace
 pydantic>=2

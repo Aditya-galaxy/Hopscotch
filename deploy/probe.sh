@@ -19,7 +19,7 @@ echo "Probing ${PROJECT} in ${LOCATION}"
 echo
 echo "APIs"
 for api in aiplatform.googleapis.com run.googleapis.com firestore.googleapis.com \
-           pubsub.googleapis.com cloudscheduler.googleapis.com \
+           cloudscheduler.googleapis.com \
            modelarmor.googleapis.com cloudtrace.googleapis.com; do
   try "$api" "gcloud services list --enabled --project=$PROJECT --filter=config.name=$api --format='value(config.name)' | grep -q ."
 done
