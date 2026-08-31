@@ -584,12 +584,7 @@ def outbox_audio(item_id: str, who=Depends(principal)):
     from .. import store
     from ..media import MEDIA_DIR
 
-    for scope in ("case.read_own", "case.read_redacted", "case.read"):
-        if scope in who.scopes:
-            break
-    else:
-        scope = "case.read"
-    _needs(who, scope)
+    _needs(who, _read_scope(who) or "case.read")
     item = store.get_outbound(item_id)
     if item is None or not item.audio_path:
         raise HTTPException(404, "no audio for this notice")
@@ -660,6 +655,24 @@ def _locked(what: str, scope: str) -> str:
             f'It requires <code>{e(scope)}</code>.</div>')
 
 
+def _read_scope(who) -> str | None:
+    """Any read scope this identity holds, or None.
+
+    Asks the gateway's own table rather than naming scopes inline. Enumerating
+    them by hand is how `case.read_full` -- the MOST privileged read scope --
+    ended up locked out of the caseload: the check listed `case.read` and
+    `case.read_redacted` and simply did not mention it. A new read scope added
+    later would have failed the same way.
+    """
+    from ..gateway import SCOPE_SENSITIVITY
+
+    held = [sc for sc in who.scopes if sc in SCOPE_SENSITIVITY]
+    if not held:
+        return None
+    from ..gateway import _RANK
+    return max(held, key=lambda sc: _RANK[SCOPE_SENSITIVITY[sc]])
+
+
 def _cases_for(who) -> list[dict]:
     """Caseload, projected through the caller's own scopes.
 
@@ -724,7 +737,7 @@ def _brief_block(who) -> str:
 
 
 def _caseload_block(who, cases) -> str:
-    if "case.read" not in who.scopes and "case.read_redacted" not in who.scopes:
+    if _read_scope(who) is None:
         return _locked("The caseload", "case.read")
 
     can_fix = "case.write" in who.scopes and not read_only()
@@ -1016,11 +1029,7 @@ def case_detail(student_ref: str, msg: str = "", who=Depends(principal)) -> str:
     from ..gateway import project_for_scopes
 
     who.require_record(student_ref)
-    for scope in ("case.read", "case.read_own", "case.read_redacted"):
-        if scope in who.scopes:
-            break
-    else:
-        scope = "case.read"
+    scope = _read_scope(who) or "case.read"
     _needs(who, scope)
     case = store.get_case(student_ref)
     if case is None:

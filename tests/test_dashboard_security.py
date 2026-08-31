@@ -274,3 +274,18 @@ def test_a_refused_walkthrough_write_answers_403_not_200(monkeypatch):
         assert c.post(path).status_code == 403, path
     # the reader's page is not an error
     assert c.get("/walkthrough").status_code == 200
+
+
+def test_the_most_privileged_reader_is_not_locked_out(monkeypatch):
+    """case.read_full is the HIGHEST read scope and was locked out of the
+    caseload, because the gate listed scope names by hand and did not mention
+    it. A psychologist saw an empty caseload while a liaison saw a full one."""
+    from hopscotch.auth import Principal, Role
+    from hopscotch.dashboard.app import _read_scope
+
+    psych = Principal(email="p@d.org", role=Role.PSYCHOLOGIST)
+    assert _read_scope(psych) == "case.read_full"
+    for role in (Role.COORDINATOR, Role.LIAISON, Role.ADMIN, Role.PARENT):
+        assert _read_scope(Principal(email="x@d.org", role=role)) is not None, role
+    # the business office holds no read scope over cases, only over claims
+    assert _read_scope(Principal(email="b@d.org", role=Role.BUSINESS)) is None
