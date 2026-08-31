@@ -23,6 +23,45 @@ authentication, which the public deployment deliberately does not have.
 
 ---
 
+### Where things are
+
+```
+src/hopscotch/
+  deadlines.py      the statutory clock — the one calculation the product is
+  jurisdictions.py  state rules and school calendars: calendar/school/business days
+  pipeline.py       the escalation chain: intake → clock → casework → family
+  claims.py         would this session survive a Medicaid audit? nine checks
+  claim.py          CPT coding, NCCI bundling, the CSV a billing vendor ingests
+  gateway.py        THE ENFORCEMENT POINT — authorize(), and project() which
+                    shapes each record to the identity asking for it
+  registry.py       agent cards, scopes, versioned publish/discover/authorize
+  armor.py          Model Armor: screens every document before a model reads it
+  auth.py           human identity, roles mapped onto the SAME scope vocabulary
+  idempotency.py    deterministic effect IDs; Firestore create() IS the dedupe
+  media.py          Chirp3-HD spoken notices, one cached Veo explainer
+  memory.py         Vertex AI Memory Bank
+  telemetry.py      OpenTelemetry spans → Cloud Trace
+  agents/           the five workers, one file each
+  jobs/tick.py      what the hourly Cloud Run job actually runs
+  dashboard/        the web surface — no model access, by design
+    app.py            dashboard, case pages, family view, identity switcher
+    walkthrough.py    the ten-step guided demo
+    security.py       CSP, same-origin, the read-only guard
+
+registry/*.agent.yaml   each agent's declared scopes — the policy, as data
+tests/                  173 tests, no cloud credentials needed
+deploy/                 probe.sh checks the platform; day1.sh builds it
+scripts/                geap.sh proves the GEAP claims live; demo.sh for recording
+docs/diagrams/          architecture diagram
+data/replicas/          inert reproductions of published attack patterns
+```
+
+**If you only open three files:** `gateway.py` for the security model,
+`deadlines.py` for the calculation everything hangs off, and `claims.py` for the
+half that pays for it.
+
+---
+
 ## The problem
 
 Federal law gives a district **60 calendar days** from parental consent to
