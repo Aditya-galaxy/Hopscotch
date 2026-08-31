@@ -11,3 +11,6 @@ data/generated/
 data/corpora/
 data/media/
 data/outbox/
+
+# Personal recording checklist -- kept local, not part of the submission
+docs/submission/RECORD-NOW.md
