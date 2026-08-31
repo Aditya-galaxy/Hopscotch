@@ -1,78 +1,28 @@
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300&display=swap">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{width:1200px;height:630px;overflow:hidden}
   body{
     background:#000;color:#fff;
-    font-family:"IBM Plex Sans",system-ui,sans-serif;
-    display:flex;flex-direction:column;justify-content:space-between;
-    padding:58px 64px 52px;
+    display:flex;align-items:center;
+    padding:0 88px;
     position:relative;
   }
-  /* the ruled column, carried from the product */
+  /* The ruled column, kept from the product. One quiet thing so the card is
+     recognisably from the same place, and nothing else competing with the type. */
   .rail{position:absolute;top:0;bottom:0;width:1px;background:#1E1E1E}
-  .rail.l{left:36px} .rail.r{right:36px}
+  .rail.l{left:44px} .rail.r{right:44px}
 
-  .top{display:flex;align-items:center;gap:13px}
-  .mark{width:34px;height:34px;border-radius:9px;background:#fff;color:#000;
-    display:grid;place-items:center;font-family:"Newsreader",serif;
-    font-size:1.15rem;font-weight:400}
-  .name{font-family:"Newsreader",serif;font-size:1.5rem;font-weight:400;
-    letter-spacing:-.01em}
-  .track{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:.76rem;
-    letter-spacing:.17em;text-transform:uppercase;color:#9C9C9A}
-
-  h1{font-family:"Newsreader",serif;font-weight:300;font-size:4.4rem;
-    line-height:1.02;letter-spacing:-.025em;max-width:19ch}
-  h1 em{font-style:italic}
-
-  .sub{font-size:1.16rem;line-height:1.6;color:#D2D2D0;max-width:62ch;
-    margin-top:22px}
-  .sub b{font-weight:600;color:#fff}
-
-  /* 60 ticks: the statutory period, lit through day 43 */
-  .clockwrap{margin-top:30px}
-  .clabel{display:flex;justify-content:space-between;
-    font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.13em;
-    text-transform:uppercase;color:#9C9C9A;margin-bottom:9px}
-  .strip{position:relative;height:52px;border-top:1px solid #1E1E1E;
-    border-bottom:1px solid #1E1E1E}
-  .strip::before{content:"";position:absolute;inset:0;
-    background-image:linear-gradient(90deg,#3A3A38 0 1px,transparent 1px);
-    background-size:calc(100% / 60) 100%}
-  .lit{position:absolute;inset:0;
-    background-image:linear-gradient(90deg,#fff 0 1px,transparent 1px);
-    background-size:calc(100% / 60) 100%;
-    clip-path:inset(0 28.4% 0 0)}
-
-  .foot{display:flex;align-items:baseline;gap:26px;
-    font-family:"IBM Plex Mono",monospace;font-size:.75rem;letter-spacing:.08em;
-    color:#9C9C9A;border-top:1px solid #1E1E1E;padding-top:18px}
-  .foot b{color:#fff;font-weight:500}
+  h1{
+    font-family:"Newsreader",ui-serif,Georgia,serif;
+    font-weight:300;
+    font-size:5.6rem;
+    line-height:1.02;
+    letter-spacing:-.028em;
+    max-width:16ch;
+  }
 </style>
 
 <div class="rail l"></div><div class="rail r"></div>
 
-<div class="top">
-  <div class="mark">H</div>
-  <div class="name">Hopscotch</div>
-  <div class="track">Fortified Enterprise Fleet</div>
-</div>
-
-<div>
-  <h1>Sixty days from a parent&rsquo;s&nbsp;signature.</h1>
-  <p class="sub">An unattended agent fleet that holds a school district&rsquo;s
-    statutory clocks &mdash; and <b>bills Medicaid for the services it
-    protects</b>, which is what pays for it.</p>
-
-  <div class="clockwrap">
-    <div class="clabel"><span>34 CFR &sect;300.301(c)(1)(i)</span><span>60 days</span></div>
-    <div class="strip"><div class="lit"></div></div>
-  </div>
-</div>
-
-<div class="foot">
-  <span><b>Gemini 3.5 Flash</b> on Google ADK</span>
-  <span><b>240</b> unattended runs</span>
-  <span><b>Agent Engine</b> &middot; Registry &middot; Memory Bank &middot; Model Armor</span>
-</div>
+<h1>Sixty days from a parent&rsquo;s&nbsp;signature.</h1>
